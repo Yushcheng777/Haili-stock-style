@@ -1,2 +1,24 @@
-# Haili-stock-style
-Enhanced "Haili Stock Style" stock selection strategy with Python &amp; Akshare
+# Haili Stock Style
+
+This repository contains the implementation of the haili_strategy_style.
+
+## Features
+
+- Feature 1: Description
+- Feature 2: Description
+
+## Installation
+
+```bash
+pip install haili_strategy_style
+```
+
+## Usage
+
+```python
+import haili_strategy_style
+```
+
+## License
+
+This project is licensed under the MIT License.
