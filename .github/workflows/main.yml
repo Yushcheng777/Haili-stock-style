@@ -1,0 +1,41 @@
+name: Daily Haili Backtest
+
+on:
+  workflow_dispatch:        # 支持手动触发
+  schedule:
+    # 每天北京时间16:30运行 (UTC时间为08:30)
+    - cron: '30 8 * * *'
+
+jobs:
+  run-backtest:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 检出代码到运行环境
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      # 设置 Python 环境
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      # 安装依赖
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install akshare pandas numpy matplotlib
+
+      # 运行脚本
+      - name: Run Haili Backtest
+        run: python haili_backtest.py
+
+      # 上传生成的文件 (例如 backtest_results.csv 和 equity_curve.png)
+      - name: Upload Results
+        uses: actions/upload-artifact@v3
+        with:
+          name: backtest-results
+          path: |
+            backtest_results.csv
+            equity_curve.png
