@@ -1,6 +1,6 @@
 # Haili Stock Style
 
-This repository contains the implementation of the haili_strategy_style.
+This repository contains the implementation of the Haili Style strategy.
 
 ## Features
 
