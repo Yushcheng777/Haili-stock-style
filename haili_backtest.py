@@ -20,7 +20,7 @@ haili_backtest.py
 import os
 import sys
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 import numpy as np
 import pandas as pd
 
@@ -421,7 +421,7 @@ def save_csv(df_out, ticker, ci_mode=False):
     Returns:
         str: Filename of saved file
     """
-    ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
+    ts = datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')
     fname = f"{ticker}_haili_detailed_{ts}.csv"
     
     if ci_mode:
