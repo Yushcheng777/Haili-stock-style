@@ -49,13 +49,59 @@ HEADER = [
 "Radar_Pass","Tech_Confirm","Buy_Signal","Signal_Light","Radar_Score"
 ]
 
+def normalize_csv_columns(df):
+    """
+    Normalize CSV column names for date and adjusted close price compatibility.
+    
+    Handles variations in column names:
+    - Date columns: 'Date', 'date', '日期' -> 'Date'  
+    - AdjClose columns: 'AdjClose', 'Adj Close', 'Adj_Close', '收盘复权价' -> 'AdjClose'
+    
+    Args:
+        df (pandas.DataFrame): Input DataFrame with potentially varied column names
+        
+    Returns:
+        pandas.DataFrame: DataFrame with normalized column names
+    """
+    df = df.copy()
+    
+    # Normalize date column names
+    date_variants = ['Date', 'date', '日期']
+    for variant in date_variants:
+        if variant in df.columns and 'Date' not in df.columns:
+            df.rename(columns={variant: 'Date'}, inplace=True)
+            break
+    
+    # Normalize AdjClose column names
+    adjclose_variants = ['AdjClose', 'Adj Close', 'Adj_Close', '收盘复权价']
+    for variant in adjclose_variants:
+        if variant in df.columns and 'AdjClose' not in df.columns:
+            df.rename(columns={variant: 'AdjClose'}, inplace=True)
+            break
+            
+    return df
+
 def read_price_from_csv(path):
-    df = pd.read_csv(path, parse_dates=['Date'])
+    """
+    Read price data from CSV file and normalize column names.
+    
+    Args:
+        path (str): Path to CSV file
+        
+    Returns:
+        pandas.DataFrame: Price data with normalized columns and sorted by date
+    """
+    # Try to read CSV, attempting to parse various date column names
+    df = pd.read_csv(path)
+    df = normalize_csv_columns(df)
+    
+    # Parse dates after normalization
+    if 'Date' in df.columns:
+        df['Date'] = pd.to_datetime(df['Date'])
+    else:
+        raise ValueError("No recognizable date column found in CSV")
+        
     df = df.sort_values('Date').reset_index(drop=True)
-    # normalize column names
-    for c in ['AdjClose','Adj Close','Adj_Close']:
-        if c in df.columns and 'AdjClose' not in df.columns:
-            df.rename(columns={c:'AdjClose'}, inplace=True)
     return df
 
 def fetch_akshare_a_stock(ticker, start=None, end=None):
@@ -80,6 +126,112 @@ def sma(series, n):
 
 def ema(series, n):
     return series.ewm(span=n, adjust=False).mean()
+
+def detect_rsi_divergence(close_prices, rsi_values, lookback_window=60):
+    """
+    Detect RSI divergence signals (bullish and bearish).
+    
+    Classic divergence occurs when:
+    - Bullish divergence: Price makes lower lows but RSI makes higher lows
+    - Bearish divergence: Price makes higher highs but RSI makes lower highs
+    
+    Args:
+        close_prices (pandas.Series): Close price series
+        rsi_values (pandas.Series): RSI values series  
+        lookback_window (int): Number of periods to look back for divergence (default 60)
+        
+    Returns:
+        pandas.Series: Divergence flags (1=bullish, -1=bearish, 0=none)
+    """
+    if len(close_prices) < lookback_window:
+        return pd.Series([0] * len(close_prices), index=close_prices.index)
+        
+    divergence_flags = pd.Series([0] * len(close_prices), index=close_prices.index)
+    
+    # Need at least lookback_window + 14 periods for meaningful analysis
+    min_periods = max(lookback_window + 14, 30)
+    
+    for i in range(min_periods, len(close_prices)):
+        # Get recent data for analysis
+        start_idx = max(0, i - lookback_window)
+        recent_close = close_prices.iloc[start_idx:i+1]
+        recent_rsi = rsi_values.iloc[start_idx:i+1]
+        
+        # Skip if we don't have enough valid RSI data
+        if recent_rsi.isna().sum() > len(recent_rsi) * 0.5:
+            continue
+            
+        # Find recent significant peaks and troughs (simple approach)
+        # Look for local minima and maxima in a shorter window
+        short_window = min(14, len(recent_close) // 3)
+        
+        if len(recent_close) < short_window * 2:
+            continue
+            
+        # Find recent low points for bullish divergence
+        try:
+            # Get the two most recent significant lows
+            close_rolling_min = recent_close.rolling(window=short_window, center=True).min()
+            price_lows = recent_close[recent_close == close_rolling_min].tail(2)
+            
+            if len(price_lows) >= 2:
+                # Check if price made lower low but RSI made higher low
+                price_low_1, price_low_2 = price_lows.iloc[-2], price_lows.iloc[-1]
+                rsi_low_1 = recent_rsi.loc[price_lows.index[-2]]
+                rsi_low_2 = recent_rsi.loc[price_lows.index[-1]]
+                
+                if (price_low_2 < price_low_1 and rsi_low_2 > rsi_low_1 and 
+                    not pd.isna(rsi_low_1) and not pd.isna(rsi_low_2)):
+                    divergence_flags.iloc[i] = 1  # Bullish divergence
+                    continue
+            
+            # Find recent high points for bearish divergence  
+            close_rolling_max = recent_close.rolling(window=short_window, center=True).max()
+            price_highs = recent_close[recent_close == close_rolling_max].tail(2)
+            
+            if len(price_highs) >= 2:
+                # Check if price made higher high but RSI made lower high
+                price_high_1, price_high_2 = price_highs.iloc[-2], price_highs.iloc[-1]
+                rsi_high_1 = recent_rsi.loc[price_highs.index[-2]]
+                rsi_high_2 = recent_rsi.loc[price_highs.index[-1]]
+                
+                if (price_high_2 > price_high_1 and rsi_high_2 < rsi_high_1 and 
+                    not pd.isna(rsi_high_1) and not pd.isna(rsi_high_2)):
+                    divergence_flags.iloc[i] = -1  # Bearish divergence
+                    
+        except (IndexError, KeyError):
+            # Handle edge cases gracefully
+            continue
+            
+    return divergence_flags
+
+def wilder_smoothing(series, period):
+    """
+    Apply Wilder's smoothing method (similar to exponential moving average).
+    
+    Wilder's smoothing formula: 
+    Current value = (Previous smoothed value * (period - 1) + Current value) / period
+    
+    Args:
+        series (pandas.Series): Input data series
+        period (int): Smoothing period
+        
+    Returns:
+        pandas.Series: Smoothed series
+    """
+    if len(series) == 0:
+        return series.copy()
+        
+    smoothed = pd.Series(index=series.index, dtype='float64')
+    smoothed.iloc[0] = series.iloc[0] if not pd.isna(series.iloc[0]) else 0
+    
+    for i in range(1, len(series)):
+        if pd.isna(series.iloc[i]):
+            smoothed.iloc[i] = smoothed.iloc[i-1]
+        else:
+            smoothed.iloc[i] = ((smoothed.iloc[i-1] * (period - 1)) + series.iloc[i]) / period
+            
+    return smoothed
 
 def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df = df.copy()
@@ -141,16 +293,27 @@ def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     tr = pd.concat([high - low, (high - prev_close).abs(), (low - prev_close).abs()], axis=1).max(axis=1)
     df['ATR14'] = tr.rolling(14).mean()
 
-    # ADX, DI+ DI- (simplified Wilder smoothing)
+    # ADX, DI+ DI- (using proper Wilder smoothing)
     up_move = high.diff()
     down_move = -low.diff()
     plus_dm = np.where((up_move > down_move) & (up_move > 0), up_move, 0.0)
     minus_dm = np.where((down_move > up_move) & (down_move > 0), down_move, 0.0)
-    tr14 = tr.rolling(14).sum()
-    plus_di = 100 * (pd.Series(plus_dm).rolling(14).sum() / tr14)
-    minus_di = 100 * (pd.Series(minus_dm).rolling(14).sum() / tr14)
+    
+    # Apply Wilder smoothing to True Range and Directional Movements
+    tr_smoothed = wilder_smoothing(tr, 14)
+    plus_dm_smoothed = wilder_smoothing(pd.Series(plus_dm, index=close.index), 14)
+    minus_dm_smoothed = wilder_smoothing(pd.Series(minus_dm, index=close.index), 14)
+    
+    # Calculate DI+ and DI-
+    plus_di = 100 * (plus_dm_smoothed / tr_smoothed)
+    minus_di = 100 * (minus_dm_smoothed / tr_smoothed)
+    
+    # Calculate DX and ADX
     dx = (abs(plus_di - minus_di) / (plus_di + minus_di)) * 100
-    df['ADX'] = dx.rolling(14).mean()
+    dx = dx.replace([np.inf, -np.inf], np.nan).fillna(0)
+    
+    # Apply Wilder smoothing to DX to get ADX
+    df['ADX'] = wilder_smoothing(dx, 14)
     df['DI_Plus'] = plus_di
     df['DI_Minus'] = minus_di
 
@@ -211,7 +374,7 @@ def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df['MACD_BearCross'] = ((df['MACD_Line'] < df['MACD_Signal']) & (df['MACD_Line'].shift(1) >= df['MACD_Signal'].shift(1))).astype(int)
     df['RSI_BullRange'] = (df['RSI14'] > 60).astype(int)
     df['RSI_BearRange'] = (df['RSI14'] < 40).astype(int)
-    df['RSI_Divergence_Flag'] = 0  # Placeholder: divergence detection requires pattern analysis
+    df['RSI_Divergence_Flag'] = detect_rsi_divergence(close, df['RSI14'])
 
     df['ATR_Breakout_Flag'] = (df['Close'] > (df['Close'].shift(1) + df['ATR14'] * 1.5)).astype(int)
     df['Vol_Expansion_Flag'] = (df['Volume'] > df['AvgVol20'] * 2).astype(int)
@@ -246,19 +409,60 @@ def compute_indicators(df, ticker=None, benchmark=None, sector=None):
             out[col] = df.get(col, np.nan)
     return out
 
-def save_csv(df_out, ticker):
+def save_csv(df_out, ticker, ci_mode=False):
+    """
+    Save the processed DataFrame to CSV file.
+    
+    Args:
+        df_out (pandas.DataFrame): Processed data to save
+        ticker (str): Ticker symbol for filename
+        ci_mode (bool): If True, save to results/ directory
+        
+    Returns:
+        str: Filename of saved file
+    """
     ts = datetime.utcnow().strftime('%Y%m%d_%H%M%S')
     fname = f"{ticker}_haili_detailed_{ts}.csv"
-    df_out.to_csv(fname, index=False)
-    print(f"Saved: {fname}")
-    return fname
+    
+    if ci_mode:
+        # Create results directory if it doesn't exist
+        os.makedirs('results', exist_ok=True)
+        full_path = os.path.join('results', fname)
+    else:
+        full_path = fname
+        
+    df_out.to_csv(full_path, index=False)
+    print(f"Saved: {full_path}")
+    return full_path
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--tickers', nargs='*', help='tickers to process (space separated)')
     parser.add_argument('--input-csv', help='local CSV file for a single ticker (overrides remote fetch)')
     parser.add_argument('--ticker', help='ticker name when using --input-csv')
+    parser.add_argument('--ci-mode', action='store_true', 
+                       help='run non-interactively using CI_TICKERS env var and save to results/ directory')
     args = parser.parse_args()
+
+    # Handle CI mode
+    if args.ci_mode:
+        ci_tickers_str = os.environ.get('CI_TICKERS', '000001.SZ')
+        tickers = [t.strip() for t in ci_tickers_str.split(',') if t.strip()]
+        print(f"CI mode: Processing tickers: {tickers}")
+        
+        for t in tickers:
+            try:
+                # prefer local file at data/prices/{t}.csv if exists
+                local_path = f"data/prices/{t}.csv"
+                if os.path.exists(local_path):
+                    df = read_price_from_csv(local_path)
+                else:
+                    df = fetch_akshare_a_stock(t)
+                df_out = compute_indicators(df, ticker=t)
+                save_csv(df_out, t, ci_mode=True)
+            except Exception as e:
+                print(f"Error processing {t}: {e}")
+        return
 
     tickers = args.tickers or []
     if args.input_csv:
@@ -271,7 +475,7 @@ def main():
         return
 
     if not tickers:
-        print("No tickers provided. Use --tickers or --input-csv")
+        print("No tickers provided. Use --tickers or --input-csv or --ci-mode")
         sys.exit(1)
 
     for t in tickers:
