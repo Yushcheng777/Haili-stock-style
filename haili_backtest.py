@@ -29,6 +29,9 @@ try:
 except Exception:
     ak = None
 
+# RSI divergence detection constants
+RSI_VALIDITY_THRESHOLD = 0.7  # Minimum fraction of non-NaN RSI values required
+
 HEADER = [
 "Ticker","Date","Open","High","Low","Close","AdjClose","Volume","Turnover",
 "MA20","MA50","MA200","EMA20","EMA50","EMA200",
@@ -80,6 +83,173 @@ def sma(series, n):
 
 def ema(series, n):
     return series.ewm(span=n, adjust=False).mean()
+
+def _local_extrema_indices(series, kind='min', order=1, prominence=0.0):
+    """
+    Find indices of local extrema in a pandas Series using pure numpy/pandas.
+    
+    Args:
+        series: pandas Series to analyze
+        kind: 'min' for local minima, 'max' for local maxima
+        order: minimum separation between extrema (radius for neighbors check)
+        prominence: minimum absolute difference vs neighboring points
+    
+    Returns:
+        numpy array of indices where local extrema occur
+    """
+    if len(series) < 2 * order + 1:
+        return np.array([])
+    
+    values = series.values
+    indices = []
+    
+    for i in range(order, len(values) - order):
+        current = values[i]
+        
+        # Get all neighbors within the order radius
+        left_neighbors = values[i-order:i]
+        right_neighbors = values[i+1:i+order+1]
+        
+        # Check if it's a local extremum
+        if kind == 'min':
+            # For minimum: current value must be <= all neighbors and < at least one
+            is_local_min = all(current <= neighbor for neighbor in left_neighbors) and \
+                          all(current <= neighbor for neighbor in right_neighbors) and \
+                          (any(current < neighbor for neighbor in left_neighbors) or \
+                           any(current < neighbor for neighbor in right_neighbors))
+            is_extremum = is_local_min
+        else:  # 'max'
+            # For maximum: current value must be >= all neighbors and > at least one
+            is_local_max = all(current >= neighbor for neighbor in left_neighbors) and \
+                          all(current >= neighbor for neighbor in right_neighbors) and \
+                          (any(current > neighbor for neighbor in left_neighbors) or \
+                           any(current > neighbor for neighbor in right_neighbors))
+            is_extremum = is_local_max
+        
+        if is_extremum:
+            # Check prominence if specified
+            if prominence > 0.0:
+                all_neighbors = np.concatenate([left_neighbors, right_neighbors])
+                max_diff = max(abs(current - n) for n in all_neighbors)
+                if max_diff < prominence:
+                    continue
+            
+            indices.append(i)
+    
+    return np.array(indices)
+
+def detect_rsi_divergence(prices: pd.Series, rsi_values: pd.Series, window: int = 14, 
+                         rsi_validity_threshold: float = RSI_VALIDITY_THRESHOLD) -> bool:
+    """
+    Detect conservative RSI divergences using local extrema detection.
+    
+    This function detects regular bullish and bearish RSI divergences by:
+    - Finding local extrema in both price and RSI within a recent window
+    - For bullish divergence: price makes lower low while RSI makes higher low
+    - For bearish divergence: price makes higher high while RSI makes lower high
+    - Using conservative thresholds to reduce false signals
+    
+    Args:
+        prices: pandas Series of price values (typically Close prices)
+        rsi_values: pandas Series of RSI values
+        window: lookback window for analysis (default 14)
+        rsi_validity_threshold: minimum fraction of non-NaN RSI values required
+    
+    Returns:
+        bool: True if bullish or bearish divergence detected, False otherwise
+    
+    Internal parameters (conservative defaults):
+        min_rsi_diff: 3.0 - minimum RSI difference between extrema
+        min_price_diff_pct: 0.005 - minimum price difference percentage (0.5%)
+        extrema_order: 1 - neighbor radius for extrema detection
+        extrema_prominence: 0.0 - minimum prominence for extrema filtering
+    """
+    # Internal constants for conservative detection
+    min_rsi_diff = 3.0
+    min_price_diff_pct = 0.005
+    extrema_order = 1
+    extrema_prominence = 0.0
+    
+    # Early exit for insufficient data
+    if len(prices) < window or len(rsi_values) < window:
+        return False
+    
+    # Get recent window data
+    i = len(prices) - 1  # Current index (last row)
+    start_idx = max(0, i - window + 1)
+    recent_prices = prices.iloc[start_idx:i+1]
+    recent_rsi = rsi_values.iloc[start_idx:i+1]
+    
+    # Check RSI validity (minimum fraction of non-NaN values)
+    rsi_valid_count = recent_rsi.notna().sum()
+    if rsi_valid_count / len(recent_rsi) < rsi_validity_threshold:
+        return False
+    
+    # Drop NaN values for extrema detection
+    valid_mask = recent_prices.notna() & recent_rsi.notna()
+    if valid_mask.sum() < 4:  # Need at least 4 points for 2 extrema
+        return False
+        
+    clean_prices = recent_prices[valid_mask]
+    clean_rsi = recent_rsi[valid_mask]
+    
+    # Find local minima for bullish divergence
+    price_mins = _local_extrema_indices(clean_prices, kind='min', 
+                                       order=extrema_order, prominence=extrema_prominence)
+    rsi_mins = _local_extrema_indices(clean_rsi, kind='min', 
+                                     order=extrema_order, prominence=extrema_prominence)
+    
+    # Check for bullish divergence (price lower low, RSI higher low)
+    if len(price_mins) >= 2 and len(rsi_mins) >= 2:
+        # Get the two most recent price minima
+        price_older_idx, price_newer_idx = price_mins[-2], price_mins[-1]
+        price_older = clean_prices.iloc[price_older_idx]
+        price_newer = clean_prices.iloc[price_newer_idx]
+        
+        # Get the two most recent RSI minima
+        rsi_older_idx, rsi_newer_idx = rsi_mins[-2], rsi_mins[-1]
+        rsi_older = clean_rsi.iloc[rsi_older_idx]
+        rsi_newer = clean_rsi.iloc[rsi_newer_idx]
+        
+        # Check bullish divergence conditions
+        price_makes_lower_low = price_newer < price_older
+        rsi_makes_higher_low = rsi_newer > rsi_older
+        sufficient_rsi_diff = abs(rsi_newer - rsi_older) >= min_rsi_diff
+        sufficient_price_diff = (price_older - price_newer) / price_older >= min_price_diff_pct
+        
+        if (price_makes_lower_low and rsi_makes_higher_low and 
+            sufficient_rsi_diff and sufficient_price_diff):
+            return True
+    
+    # Find local maxima for bearish divergence  
+    price_maxs = _local_extrema_indices(clean_prices, kind='max',
+                                       order=extrema_order, prominence=extrema_prominence)
+    rsi_maxs = _local_extrema_indices(clean_rsi, kind='max',
+                                     order=extrema_order, prominence=extrema_prominence)
+    
+    # Check for bearish divergence (price higher high, RSI lower high)
+    if len(price_maxs) >= 2 and len(rsi_maxs) >= 2:
+        # Get the two most recent price maxima
+        price_older_idx, price_newer_idx = price_maxs[-2], price_maxs[-1]
+        price_older = clean_prices.iloc[price_older_idx]
+        price_newer = clean_prices.iloc[price_newer_idx]
+        
+        # Get the two most recent RSI maxima
+        rsi_older_idx, rsi_newer_idx = rsi_maxs[-2], rsi_maxs[-1]
+        rsi_older = clean_rsi.iloc[rsi_older_idx]
+        rsi_newer = clean_rsi.iloc[rsi_newer_idx]
+        
+        # Check bearish divergence conditions
+        price_makes_higher_high = price_newer > price_older
+        rsi_makes_lower_high = rsi_newer < rsi_older
+        sufficient_rsi_diff = abs(rsi_newer - rsi_older) >= min_rsi_diff
+        sufficient_price_diff = (price_newer - price_older) / price_older >= min_price_diff_pct
+        
+        if (price_makes_higher_high and rsi_makes_lower_high and 
+            sufficient_rsi_diff and sufficient_price_diff):
+            return True
+    
+    return False
 
 def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df = df.copy()
@@ -211,7 +381,24 @@ def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df['MACD_BearCross'] = ((df['MACD_Line'] < df['MACD_Signal']) & (df['MACD_Line'].shift(1) >= df['MACD_Signal'].shift(1))).astype(int)
     df['RSI_BullRange'] = (df['RSI14'] > 60).astype(int)
     df['RSI_BearRange'] = (df['RSI14'] < 40).astype(int)
-    df['RSI_Divergence_Flag'] = 0  # Placeholder: divergence detection requires pattern analysis
+    
+    # RSI Divergence detection using rolling analysis
+    rsi_divergence_flags = []
+    for i in range(len(df)):
+        if i < 13:  # Need at least 14 points for default window
+            rsi_divergence_flags.append(0)
+        else:
+            try:
+                has_divergence = detect_rsi_divergence(
+                    df['Close'].iloc[:i+1], 
+                    df['RSI14'].iloc[:i+1], 
+                    window=14
+                )
+                rsi_divergence_flags.append(1 if has_divergence else 0)
+            except Exception:
+                rsi_divergence_flags.append(0)
+    
+    df['RSI_Divergence_Flag'] = rsi_divergence_flags
 
     df['ATR_Breakout_Flag'] = (df['Close'] > (df['Close'].shift(1) + df['ATR14'] * 1.5)).astype(int)
     df['Vol_Expansion_Flag'] = (df['Volume'] > df['AvgVol20'] * 2).astype(int)
