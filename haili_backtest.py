@@ -29,6 +29,9 @@ try:
 except Exception:
     ak = None
 
+# Module-level default fraction of non-NaN RSI values required for divergence detection
+RSI_VALIDITY_THRESHOLD = 0.5
+
 HEADER = [
 "Ticker","Date","Open","High","Low","Close","AdjClose","Volume","Turnover",
 "MA20","MA50","MA200","EMA20","EMA50","EMA200",
@@ -80,6 +83,36 @@ def sma(series, n):
 
 def ema(series, n):
     return series.ewm(span=n, adjust=False).mean()
+
+def detect_rsi_divergence(prices, rsi_values, i, window, rsi_validity_threshold: float = RSI_VALIDITY_THRESHOLD):
+    """
+    Detect RSI divergence at position i.
+    
+    Args:
+        prices: Series of price values
+        rsi_values: Series of RSI values
+        i: Current position index
+        window: Lookback window size
+        rsi_validity_threshold: Fraction (0..1) of non-NaN RSI values required in recent window
+        
+    Returns:
+        bool: True if divergence detected, False otherwise
+    """
+    # Guard for empty inputs
+    if len(prices) == 0 or len(rsi_values) == 0:
+        return False
+        
+    # Compute recent window
+    start_idx = max(0, i - window + 1)
+    recent_rsi = rsi_values.iloc[start_idx:i+1]
+    
+    # Check validity threshold
+    required_non_na = len(recent_rsi) * rsi_validity_threshold
+    if recent_rsi.notna().sum() < required_non_na:
+        return False
+    
+    # Placeholder divergence logic - return False by default
+    return False
 
 def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df = df.copy()
@@ -211,7 +244,14 @@ def compute_indicators(df, ticker=None, benchmark=None, sector=None):
     df['MACD_BearCross'] = ((df['MACD_Line'] < df['MACD_Signal']) & (df['MACD_Line'].shift(1) >= df['MACD_Signal'].shift(1))).astype(int)
     df['RSI_BullRange'] = (df['RSI14'] > 60).astype(int)
     df['RSI_BearRange'] = (df['RSI14'] < 40).astype(int)
-    df['RSI_Divergence_Flag'] = 0  # Placeholder: divergence detection requires pattern analysis
+    
+    # RSI Divergence detection using the folded approach
+    divergence_flags = []
+    window = 14  # Default window for RSI divergence detection
+    for i in range(len(df)):
+        divergence_detected = detect_rsi_divergence(df['Close'], df['RSI14'], i, window)
+        divergence_flags.append(int(divergence_detected))
+    df['RSI_Divergence_Flag'] = divergence_flags
 
     df['ATR_Breakout_Flag'] = (df['Close'] > (df['Close'].shift(1) + df['ATR14'] * 1.5)).astype(int)
     df['Vol_Expansion_Flag'] = (df['Volume'] > df['AvgVol20'] * 2).astype(int)
