@@ -1,4 +1,4 @@
-akshare==1.13.82
-pandas==2.0.0
-matplotlib==3.7.0
-pytest
+# 仅示例，保留你其余依赖不变
+akshare==1.17.35
+# 或者使用范围：
+# akshare>=1.16.72,<2
