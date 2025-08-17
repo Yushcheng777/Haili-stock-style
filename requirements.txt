@@ -1,4 +1,4 @@
-akshare
-pandas
-matplotlib
+akshare==1.13.82
+pandas==2.0.0
+matplotlib==3.7.0
 pytest

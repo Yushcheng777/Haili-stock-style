@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: [3.8, 3.9, 3.10, 3.11]
+        python-version: [ "3.8", "3.9", "3.10", "3.11" ]
 
     steps:
       - name: Checkout repository
@@ -21,28 +21,27 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: ${{ matrix.python-version }}
-
-      - name: Cache pip
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-          restore-keys: |
-            ${{ runner.os }}-pip-
+          cache: pip
+          cache-dependency-path: requirements.txt
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-          pip install pytest
+          pip install -r requirements.txt
 
       - name: Run tests
         run: |
-          pytest -q
+          mkdir -p test-results
+          pytest -q --junitxml=test-results/pytest.xml
 
-      - name: Upload test results (optional)
-        if: failure()
+      - name: Upload test artifacts
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-logs
-          path: ./
+          name: pytest-results-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            test-results/**
+            .pytest_cache/**
+          if-no-files-found: ignore
+          overwrite: true
+          retention-days: 7
