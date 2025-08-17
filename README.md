@@ -1,5 +1,7 @@
 # Haili Stock Style
 
+[![Daily Haili backtest](https://github.com/Yushcheng777/Haili-stock-style/actions/workflows/daily-haili.yml/badge.svg?branch=main)](https://github.com/Yushcheng777/Haili-stock-style/actions/workflows/daily-haili.yml)
+
 This repository contains the implementation of the Haili Style strategy.
 
 ## Features
