@@ -40,7 +40,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: pytest-results-${{ matrix.python-version }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: pytest-results-${{ matrix.python-version.replace('.', '-') }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             test-results/**
             .pytest_cache/**
