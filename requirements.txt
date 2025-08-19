@@ -1,5 +1,6 @@
-akshare==1.9.2
+akshare
 backtrader==1.9.76.123
 pandas==1.5.3
 numpy==1.23.5
 matplotlib==3.6.3
+setuptools
