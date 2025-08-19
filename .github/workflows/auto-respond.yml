@@ -1,8 +1,11 @@
-﻿name: Auto-respond to new issues
+name: Auto-respond to new issues
 
 on:
   issues:
     types: [opened]
+
+permissions:
+  issues: write
 
 jobs:
   respond:
@@ -13,13 +16,34 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
-            const issue = context.issue;
+            // 忽略机器人提交（例如 dependabot）
+            const sender = context.payload.issue?.user?.login;
+            if (!sender || sender.endsWith('[bot]')) {
+              core.info(`Skipping auto-response for bot user: ${sender}`);
+              return;
+            }
+
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
             const body = `感谢你提交 issue！为帮助我们更快定位并复现问题/需求，请补充下列信息（如适用）：
 
 - 策略名称 / 模块：
 - 回测时间区间 / 历史数据范围：
 - 复现步骤或示例（最好附上重现代码片段）：
 - 期望行为与实际表现：
+- 报错日志（如有）或截图：
+- 其他补充信息（例如环境/配置）：
 
 我会尽快阅读并回复。`;
-            await github.rest.issues.createComment({ ...issue, body });
+
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number,
+                body,
+              });
+              core.info(`Posted auto-response to issue #${issue_number}`);
+            } catch (error) {
+              core.error(`Failed to post auto-response: ${error}`);
+            }
