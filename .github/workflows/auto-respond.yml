@@ -25,6 +25,7 @@ jobs:
 
             const { owner, repo } = context.repo;
             const issue_number = context.issue.number;
+
             const body = `感谢你提交 issue！为帮助我们更快定位并复现问题/需求，请补充下列信息（如适用）：
 
 - 策略名称 / 模块：
