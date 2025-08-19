@@ -14,9 +14,21 @@
 
 如何运行（本地）：
 1. 安装依赖： pip install -r requirements.txt
-2. 运行回测（示例）： python scripts/run_all_backtests.py --out results/local-YYYYmmddTHHMMSS
+2. 验证环境： python scripts/run_all_backtests.py --dry-run
+3. 运行回测（示例）： python scripts/run_all_backtests.py
 
-CI（定时回测）：
+## 依赖管理
+本仓库使用 requirements.txt 管理核心依赖：
+- akshare==1.9.2
+- backtrader==1.9.76.123  
+- pandas==1.5.3
+- numpy==1.23.5
+- matplotlib==3.6.3
+
+运行 `python scripts/run_all_backtests.py --dry-run` 可以验证所有依赖是否正确安装。
+
+CI（自动化验证与定时回测）：
+- 新增 .github/workflows/validate.yml，每次 push/PR 时自动安装依赖并验证环境完整性。
 - 已添加 .github/workflows/scheduled-backtest.yml，会按计划运行回测并将结果推送到 `results` 分支，同时上传 artifact 供短期查看。
 
 安全注意：
