@@ -1,0 +1,4 @@
+[build-system]
+# Require setuptools and wheel for PEP 517 builds; set a minimum setuptools version compatible with modern Python
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
