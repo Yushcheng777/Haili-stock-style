@@ -27,6 +27,8 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
           branch_name=auto-replace-akshare-$(date +%s)
           git checkout -b $branch_name
           git add .
