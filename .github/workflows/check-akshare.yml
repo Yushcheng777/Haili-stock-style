@@ -23,9 +23,17 @@ jobs:
         run: |
           python scripts/replace_akshare_with_tushare.py
 
-      - name: Commit and push changes (if any)
+      - name: Create new branch, push changes, and create pull request
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          branch_name=auto-replace-akshare-$(date +%s)
+          git checkout -b $branch_name
           git add .
-          git diff --staged --quiet || (git commit -m "auto: replace akshare with tushare" && git push)
+          git diff --staged --quiet || (git commit -m "auto: replace akshare with tushare")
+          git push origin $branch_name
+
+          # 自动创建 PR，需 gh cli
+          gh pr create --title "Auto: Replace akshare with tushare" \
+            --body "This PR was created automatically by GitHub Actions to replace akshare with tushare." \
+            --base main --head $branch_name --label "auto-pr"
