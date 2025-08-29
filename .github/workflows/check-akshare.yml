@@ -1,0 +1,31 @@
+name: Check & Auto-Replace Akshare
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  check-akshare:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: pip install tushare pandas matplotlib
+
+      - name: Auto-replace akshare with tushare
+        run: |
+          python scripts/replace_akshare_with_tushare.py
+
+      - name: Commit and push changes (if any)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git diff --staged --quiet || (git commit -m "auto: replace akshare with tushare" && git push)
