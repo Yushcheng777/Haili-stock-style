@@ -1,4 +1,4 @@
-import akshare as ak
+import tushare as ts
 import pandas as pd
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
@@ -17,7 +17,7 @@ OUTPUT_CSV = "candidates_haili_style.csv"
 # ==============================
 def check_funds_inflow(stock_code):
     try:
-        df_funds = ak.stock_individual_fund_flow(stock=stock_code)
+        df_funds = ts.stock_individual_fund_flow(stock=stock_code)
         recent3 = df_funds.head(3)
         return recent3["主力净流入"].sum() > 0
     except:
@@ -116,7 +116,7 @@ def haili_style_selection(current_positions=None):
             except Exception as e:
                 print(f"读取持仓文件失败: {e}")
     
-    stock_list = ak.stock_info_a_code_name()
+    stock_list = ts.stock_info_a_code_name()
     results = []
 
     for idx, row in stock_list.iterrows():
@@ -124,7 +124,7 @@ def haili_style_selection(current_positions=None):
         name = row['name']
         try:
             # 基本面过滤：市值
-            info = ak.stock_individual_info_em(code)
+            info = ts.stock_individual_info_em(code)
             market_cap = float(
                 info.loc[info["item"]=="总市值", "value"].values[0]
             )
@@ -132,13 +132,13 @@ def haili_style_selection(current_positions=None):
                 continue
 
             # 题材匹配
-            conc = ak.stock_board_concept_name_em()
+            conc = ts.stock_board_concept_name_em()
             if not any(kw in " ".join(conc['板块名称']) 
                        for kw in TOPIC_KEYWORDS):
                 continue
 
             # 获取日K数据
-            df = ak.stock_zh_a_daily(symbol=code)
+            df = ts.stock_zh_a_daily(symbol=code)
             df = df.reset_index()
             df.rename(columns={"date":"date"}, inplace=True)
             df['date'] = pd.to_datetime(df['date'])

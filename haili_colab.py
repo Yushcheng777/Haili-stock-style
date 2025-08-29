@@ -1,7 +1,6 @@
 # 在 Google Colab 中运行的版本
 !pip install akshare
-
-import akshare as ak
+import tushare as ts
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta

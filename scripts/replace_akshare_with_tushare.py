@@ -7,7 +7,7 @@ AKSHARE_USAGE_PATTERN = re.compile(r'\bak\.')
 def transform_content(content):
     # 替换 import 行
     content = AKSHARE_IMPORT_PATTERN.sub('import tushare as ts', content)
-    # 替换 ak. 为 ts. （如需更细致可定制）
+    # 替换 ts. 为 ts. （如需更细致可定制）
     content = AKSHARE_USAGE_PATTERN.sub('ts.', content)
     return content
 

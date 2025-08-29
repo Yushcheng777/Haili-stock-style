@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    import akshare as ak
+import tushare as ts
 except Exception:
     ak = None
 
@@ -63,11 +63,11 @@ def fetch_akshare_a_stock(ticker, start=None, end=None):
     # This is a simplified attempt; user may adjust for correct akshare function & symbol
     if ak is None:
         raise RuntimeError("akshare not installed; provide local CSV instead.")
-    # Example: use ak.stock_zh_a_hist for A shares (ticker like 000001)
+    # Example: use ts.stock_zh_a_hist for A shares (ticker like 000001)
     sym = ticker
     if '.' in ticker:
         sym = ticker.split('.')[0]
-    df = ak.stock_zh_a_hist(symbol=sym, period="daily", adjust="qfq")
+    df = ts.stock_zh_a_hist(symbol=sym, period="daily", adjust="qfq")
     df = df.rename(columns={'日期':'Date','开盘':'Open','最高':'High','最低':'Low','收盘':'Close','成交量':'Volume','成交额':'Turnover','收盘复权价':'AdjClose'})
     df['Date'] = pd.to_datetime(df['Date'])
     # keep needed cols
