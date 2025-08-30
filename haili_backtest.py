@@ -9,10 +9,10 @@ haili_backtest.py
   python haili_backtest.py --input-csv data/prices/000001.SZ.csv --ticker 000001.SZ
 
 依赖：
-  pip install pandas numpy akshare
+  pip install pandas numpy tushare
 
 说明：
-  - 脚本尝试从本地 CSV (if provided) 读取历史行情，若未提供则尝试用 akshare 下载（A 股示例）。
+  - 脚本尝试从本地 CSV (if provided) 读取历史行情，若未提供则尝试用 tushare 下载（A 股示例）。
   - 输出文件名： {TICKER}_haili_detailed_{YYYYmmdd_HHMMSS}.csv，放在当前工作目录。
   - 计算的一些信号为简化版本，供回测/记录使用，可根据需要扩展。
 """
@@ -25,7 +25,7 @@ import numpy as np
 import pandas as pd
 
 try:
-    import akshare as ak
+    import tushare as ak
 except Exception:
     ak = None
 
@@ -58,11 +58,11 @@ def read_price_from_csv(path):
             df.rename(columns={c:'AdjClose'}, inplace=True)
     return df
 
-def fetch_akshare_a_stock(ticker, start=None, end=None):
-    # ticker like '000001.SZ' => akshare requires 'sh000001' or specific function
-    # This is a simplified attempt; user may adjust for correct akshare function & symbol
+def fetch_tushare_a_stock(ticker, start=None, end=None):
+    # ticker like '000001.SZ' => tushare requires 'sh000001' or specific function
+    # This is a simplified attempt; user may adjust for correct tushare function & symbol
     if ak is None:
-        raise RuntimeError("akshare not installed; provide local CSV instead.")
+        raise RuntimeError("tushare not installed; provide local CSV instead.")
     # Example: use ak.stock_zh_a_hist for A shares (ticker like 000001)
     sym = ticker
     if '.' in ticker:
@@ -281,7 +281,7 @@ def main():
             if os.path.exists(local_path):
                 df = read_price_from_csv(local_path)
             else:
-                df = fetch_akshare_a_stock(t)
+                df = fetch_tushare_a_stock(t)
             df_out = compute_indicators(df, ticker=t)
             save_csv(df_out, t)
         except Exception as e:
