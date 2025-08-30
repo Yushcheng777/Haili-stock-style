@@ -1,6 +1,6 @@
 import os
 import re
- auto-replace-akshare-1756546566
+ auto-replace-tushare-1756546566
 AKSHARE_IMPORT_PATTERN = re.compile(r'^\s*import\s+tushare\s+as\s+ak', re.MULTILINE)
 AKSHARE_USAGE_PATTERN = re.compile(r'\bak\.')
 def replace_in_file(filepath, patterns):
@@ -12,7 +12,7 @@ def replace_in_file(filepath, patterns):
     new_content = content
     for pat, repl in patterns:
         new_content = re.sub(pat, repl, new_content, flags=re.IGNORECASE)
- auto-replace-akshare-1756546566
+ auto-replace-tushare-1756546566
 def replace_in_file(file_path, dry_run=False):
     with open(file_path, encoding="utf-8") as f:
         orig = f.read()
@@ -35,7 +35,7 @@ def should_replace(filename):
     """Only replace in .py files."""
     return filename.endswith('.py')
 
- auto-replace-akshare-1756546566
+ auto-replace-tushare-1756546566
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Replace tushare with tushare in all .py files")
