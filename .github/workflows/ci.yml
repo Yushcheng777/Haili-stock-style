@@ -1,0 +1,62 @@
+name: Haili-Stock-Style CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Set Tushare Token env
+      run: echo "TUSHARE_TOKEN=${{ secrets.TUSHARE_TOKEN }}" >> $GITHUB_ENV
+
+    - name: Test haili_strategy.py
+      run: python haili_strategy.py
+
+    - name: Test haili_backtest.py (示例：600000.SH)
+      run: python haili_backtest.py --tickers 600000.SH
+
+    - name: List output files
+      run: ls -lh *.csv || true
+
+    - name: Upload candidates CSV (artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: candidates_haili_style
+        path: candidates_haili_style.csv
+
+    - name: Upload backtest CSV (artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: haili_backtest_outputs
+        path: |
+          *_haili_detailed_*.csv
+        if-no-files-found: ignore
+
+    - name: Upload 决策图 (artifact)
+      uses: actions/upload-artifact@v4
+      with:
+        name: decision_charts
+        path: |
+          *_decision.png
+        if-no-files-found: ignore
+
+    # 可添加更多脚本或测试
