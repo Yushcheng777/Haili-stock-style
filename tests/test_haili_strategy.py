@@ -17,7 +17,7 @@ def make_fund_flow():
     return df
 
 def test_haili_style_selection_with_mock(monkeypatch, tmp_path):
-    # Mock akshare functions used in haili_strategy
+    # Mock tushare functions used in haili_strategy
     monkeypatch.setattr(haili_strategy.ak, 'stock_info_a_code_name', lambda: pd.DataFrame([{'code': '000001', 'name': 'TestCo'}]))
 
     def mock_individual_info(code):
@@ -69,7 +69,7 @@ def test_csv_reading_functionality(monkeypatch, tmp_path):
     os.chdir(tmp_path)
     
     try:
-        # Mock akshare functions
+        # Mock tushare functions
         monkeypatch.setattr(haili_strategy.ak, 'stock_info_a_code_name', lambda: pd.DataFrame([{'code': '000001', 'name': 'TestCo'}]))
         def mock_individual_info(code):
             return pd.DataFrame({'item': ['总市值'], 'value': ['60']})

@@ -20,11 +20,11 @@ def should_replace(filename):
     return filename.endswith('.py')
 
 def main(root='.'):
-    # 1. akshare 替换为 tushare（import、调用等，大小写不敏感）
+    # 1. tushare 替换为 tushare（import、调用等，大小写不敏感）
     patterns = [
-        (r'\bakshare\b', 'tushare'),    # import akshare as ak
+        (r'\btushare\b', 'tushare'),    # import tushare as ak
         (r'\bAKSHARE\b', 'tushare'),    # AKSHARE as tushare
-        # 你可以根据需要添加更多模式，如 import akshare as ak -> import tushare as ak
+        # 你可以根据需要添加更多模式，如 import tushare as ak -> import tushare as ak
     ]
 
     for dirpath, dirs, files in os.walk(root):
