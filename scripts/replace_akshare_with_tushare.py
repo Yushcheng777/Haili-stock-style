@@ -1,16 +1,18 @@
 import os
 import re
-
+ auto-replace-akshare-1756546566
 AKSHARE_IMPORT_PATTERN = re.compile(r'^\s*import\s+tushare\s+as\s+ak', re.MULTILINE)
 AKSHARE_USAGE_PATTERN = re.compile(r'\bak\.')
+def replace_in_file(filepath, patterns):
+    """Replace all patterns in a single file."""
+    with open(filepath, 'r', encoding='utf-8') as f:
+        content = f.read()
+ main
 
-def transform_content(content):
-    # 替换 import 行
-    content = AKSHARE_IMPORT_PATTERN.sub('import tushare as ts', content)
-    # 替换 ak. 为 ts. （如需更细致可定制）
-    content = AKSHARE_USAGE_PATTERN.sub('ts.', content)
-    return content
-
+    new_content = content
+    for pat, repl in patterns:
+        new_content = re.sub(pat, repl, new_content, flags=re.IGNORECASE)
+ auto-replace-akshare-1756546566
 def replace_in_file(file_path, dry_run=False):
     with open(file_path, encoding="utf-8") as f:
         orig = f.read()
@@ -23,16 +25,17 @@ def replace_in_file(file_path, dry_run=False):
     print(f"Replaced tushare with tushare in: {file_path}")
     return True
 
-def walk_and_replace(root_dir=".", dry_run=False):
-    changed = 0
-    for dirpath, _, files in os.walk(root_dir):
-        for file in files:
-            if file.endswith(".py"):
-                path = os.path.join(dirpath, file)
-                if replace_in_file(path, dry_run=dry_run):
-                    changed += 1
-    print(f"\nTotal files changed: {changed}")
+    if new_content != content:
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(new_content)
+        print(f"Replaced in: {filepath}")
+ main
 
+def should_replace(filename):
+    """Only replace in .py files."""
+    return filename.endswith('.py')
+
+ auto-replace-akshare-1756546566
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Replace tushare with tushare in all .py files")
@@ -40,3 +43,21 @@ if __name__ == "__main__":
     parser.add_argument("--dry-run", action="store_true", help="Only show what would change")
     args = parser.parse_args()
     walk_and_replace(args.root, dry_run=args.dry_run)
+
+def main(root='.'):
+    # 1. tushare 替换为 tushare（import、调用等，大小写不敏感）
+    patterns = [
+        (r'\btushare\b', 'tushare'),    # import tushare as ak
+        (r'\bAKSHARE\b', 'tushare'),    # AKSHARE as tushare
+        # 你可以根据需要添加更多模式，如 import tushare as ak -> import tushare as ak
+    ]
+
+    for dirpath, dirs, files in os.walk(root):
+        for filename in files:
+            if should_replace(filename):
+                filepath = os.path.join(dirpath, filename)
+                replace_in_file(filepath, patterns)
+
+if __name__ == '__main__':
+    main()
+ main
