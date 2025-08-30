@@ -1,41 +1,49 @@
-name: Check & Auto-Replace Akshare
+name: Check Akshare Replacement
 
 on:
   push:
-    branches: [ main ]
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
-  check-akshare:
+  replace-akshare:
     runs-on: ubuntu-latest
+
     steps:
-      - uses: actions/checkout@v4
+    - name: Checkout repository
+      uses: actions/checkout@v3
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.x'
 
-      - name: Install dependencies
-        run: pip install tushare pandas matplotlib
+    - name: Install dependencies
+      run: |
+        pip install --upgrade pip
 
-      - name: Auto-replace akshare with tushare
-        run: |
-          python scripts/replace_akshare_with_tushare.py
+    - name: Replace Akshare with Tushare
+      run: |
+        find . -type f -name "*.py" -exec sed -i 's/akshare/tushare/g' {} +
 
-      - name: Create new branch, push changes, and create pull request
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git config --global user.name "github-actions[bot]"
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          branch_name=auto-replace-akshare-$(date +%s)
-          git checkout -b $branch_name
-          git add .
-          git diff --staged --quiet || (git commit -m "auto: replace akshare with tushare")
-          git push origin $branch_name
+    - name: Set up Git user
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
 
-          # 自动创建 PR，需 gh cli
-          gh pr create --title "Auto: Replace akshare with tushare" \
-            --body "This PR was created automatically by GitHub Actions to replace akshare with tushare." \
-            --base main --head $branch_name --label "auto-pr"
+    - name: Create Pull Request with PAT
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
+      run: |
+        branch_name=auto-replace-akshare-$(date +%s)
+        git checkout -b $branch_name
+        git add .
+        git diff --staged --quiet && exit 0
+        git commit -m "auto: replace akshare with tushare"
+        git push origin $branch_name
+
+        echo "$GH_PAT" | gh auth login --with-token
+        gh pr create --title "Auto: Replace akshare with tushare" \
+          --body "This PR was created automatically by GitHub Actions to replace akshare with tushare." \
+          --base main --head $branch_name --label "auto-pr"
