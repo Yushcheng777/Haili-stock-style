@@ -10,7 +10,7 @@ import sys
 import argparse
 
 REQUIRED = [
-    ("akshare", "akshare"),
+    ("tushare", "tushare"),
     ("backtrader", "backtrader"),
     ("pandas", "pandas"),
     ("numpy", "numpy"),
