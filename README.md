@@ -1,4 +1,4 @@
-﻿# 仓库精简说明
+# 仓库精简说明
 
 目标：本仓库仅保留策略代码、回测（backtest）相关逻辑、说明文档，并且通过 GitHub Actions 定时执行回测、保存结果以及对新 issue 自动回复。
 
@@ -19,7 +19,7 @@
 
 ## 依赖管理
 本仓库使用 requirements.txt 管理核心依赖：
-- akshare==1.9.2
+- tushare==1.9.2
 - backtrader==1.9.76.123  
 - pandas==1.5.3
 - numpy==1.23.5
