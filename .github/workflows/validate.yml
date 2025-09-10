@@ -1,0 +1,84 @@
+name: Validate Integrated Strategy
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install tushare pandas numpy matplotlib
+          fi
+
+      - name: Smoke test integrated strategy (30 day window)
+        run: |
+          python - <<'EOF'
+          import os
+          import sys
+          
+          # Check if TUSHARE_TOKEN is available
+          if not os.environ.get('TUSHARE_TOKEN'):
+              print("WARNING: TUSHARE_TOKEN not available - running in degraded mode")
+              print("This is expected for fork PRs and will skip live data operations")
+              sys.exit(0)
+          
+          # Import and run quick test with small stock set and 30 days
+          try:
+              from haili_integrated_strategy import quick_run
+              
+              # Use a small set of well-known stocks for smoke test
+              test_stocks = ['000001', '000002', '600036']  # Ping An, Vanke, China Merchants Bank
+              print(f"Running smoke test on {test_stocks} with 30 day window...")
+              
+              results = quick_run(stock_codes=test_stocks, backtest_days=30)
+              
+              if results:
+                  print(f"✅ Smoke test completed successfully with {len(results)} results")
+                  for result in results:
+                      print(f"  - {result['ticker']}: {result['total_return']:.2%} return")
+              else:
+                  print("⚠️  Smoke test completed but no results generated")
+                  
+          except Exception as e:
+              print(f"❌ Smoke test failed: {str(e)}")
+              sys.exit(1)
+          EOF
+
+      - name: Upload smoke test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: validate-results-${{ github.run_id }}
+          path: |
+            backtest_results/
+            *.csv
+          retention-days: 3
+          if-no-files-found: ignore

@@ -1,0 +1,197 @@
+name: Backtests - Scheduled & Manual
+
+on:
+  schedule:
+    # Daily at 10:30 UTC (China market close + 2.5h buffer: 15:00 + 2.5h = 17:30 CST = 10:30 UTC)
+    - cron: '30 10 * * *'
+  workflow_dispatch:
+    inputs:
+      days:
+        description: 'Number of backtest days'
+        required: false
+        default: '252'
+        type: string
+      codes:
+        description: 'Comma-separated stock codes (optional, for quick run)'
+        required: false
+        default: ''
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  backtests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    env:
+      TUSHARE_TOKEN: ${{ secrets.TUSHARE_TOKEN }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Cache pip
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+          restore-keys: |
+            ${{ runner.os }}-pip-
+
+      - name: Install dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install tushare pandas numpy matplotlib
+          fi
+
+      - name: Generate timestamp
+        id: timestamp
+        run: echo "value=$(date -u +%Y%m%dT%H%M%SZ)" >> $GITHUB_OUTPUT
+
+      - name: Determine backtest strategy
+        id: strategy
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ -n "${{ github.event.inputs.codes }}" ]; then
+            echo "type=manual_quick" >> $GITHUB_OUTPUT
+            echo "days=${{ github.event.inputs.days }}" >> $GITHUB_OUTPUT
+            echo "codes=${{ github.event.inputs.codes }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "type=manual_full" >> $GITHUB_OUTPUT
+            echo "days=${{ github.event.inputs.days }}" >> $GITHUB_OUTPUT
+          else
+            echo "type=scheduled_full" >> $GITHUB_OUTPUT
+            echo "days=252" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Run backtest strategy
+        run: |
+          mkdir -p backtest_results
+          
+          python - <<'EOF'
+          import os
+          import sys
+          import json
+          
+          strategy_type = "${{ steps.strategy.outputs.type }}"
+          days = int("${{ steps.strategy.outputs.days }}")
+          codes_input = "${{ steps.strategy.outputs.codes }}"
+          
+          # Check if TUSHARE_TOKEN is available
+          if not os.environ.get('TUSHARE_TOKEN'):
+              print("WARNING: TUSHARE_TOKEN not available - running in degraded mode")
+              print("Strategy will skip live data operations and may produce limited results")
+              # Don't exit - let strategy handle graceful degradation
+          
+          try:
+              if strategy_type == "manual_quick" and codes_input:
+                  from haili_integrated_strategy import quick_run
+                  
+                  # Parse comma-separated codes
+                  codes = [code.strip() for code in codes_input.split(',') if code.strip()]
+                  print(f"Running manual quick backtest on {codes} for {days} days...")
+                  
+                  results = quick_run(stock_codes=codes, backtest_days=days)
+                  
+                  # Save summary
+                  if results:
+                      import pandas as pd
+                      df = pd.DataFrame(results)
+                      df.to_csv('backtest_results/manual_quick_summary.csv', index=False, encoding='utf-8-sig')
+                      print(f"✅ Manual quick backtest completed with {len(results)} results")
+                  
+              else:
+                  from haili_integrated_strategy import run_integrated_strategy
+                  
+                  if strategy_type == "manual_full":
+                      print(f"Running manual full integrated strategy for {days} days...")
+                  else:
+                      print(f"Running scheduled full integrated strategy for {days} days...")
+                  
+                  selected_stocks, backtest_results = run_integrated_strategy(backtest_days=days)
+                  
+                  # Save results
+                  if not selected_stocks.empty:
+                      selected_stocks.to_csv('backtest_results/selected_stocks.csv', index=False, encoding='utf-8-sig')
+                  
+                  if backtest_results:
+                      import pandas as pd
+                      df = pd.DataFrame(backtest_results)
+                      df.to_csv('backtest_results/full_backtest_summary.csv', index=False, encoding='utf-8-sig')
+                      print(f"✅ Full integrated strategy completed: {len(selected_stocks)} stocks selected, {len(backtest_results)} backtested")
+                  
+          except Exception as e:
+              print(f"❌ Backtest failed: {str(e)}")
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
+          EOF
+
+      - name: Prepare results for commit
+        env:
+          TIMESTAMP: ${{ steps.timestamp.outputs.value }}
+        run: |
+          mkdir -p results/$TIMESTAMP
+          if [ -d backtest_results ] && [ "$(ls -A backtest_results)" ]; then
+            cp -r backtest_results/* results/$TIMESTAMP/
+          fi
+          
+          # Create run info
+          cat > results/$TIMESTAMP/run_info.json <<EOF
+          {
+            "timestamp": "$TIMESTAMP",
+            "trigger": "${{ github.event_name }}",
+            "strategy_type": "${{ steps.strategy.outputs.type }}",
+            "days": "${{ steps.strategy.outputs.days }}",
+            "codes": "${{ steps.strategy.outputs.codes }}",
+            "commit_sha": "${{ github.sha }}",
+            "run_id": "${{ github.run_id }}"
+          }
+          EOF
+
+      - name: Commit results to results branch
+        env:
+          TIMESTAMP: ${{ steps.timestamp.outputs.value }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          
+          # Checkout or create results branch
+          git fetch origin results || true
+          git checkout -B results origin/results || git checkout -b results
+          
+          # Add new results
+          git add results/$TIMESTAMP
+          git commit -m "Backtest results: $TIMESTAMP (${{ steps.strategy.outputs.type }})" || echo "No changes to commit"
+          
+          # Clean up old results (keep last 14 days)
+          find results -maxdepth 1 -type d -name "????????T??????Z" | sort -r | tail -n +15 | xargs rm -rf || true
+          
+          # Commit cleanup if any
+          if [ -n "$(git status --porcelain)" ]; then
+            git add results/
+            git commit -m "Cleanup old backtest results (keeping last 14 days)"
+          fi
+          
+          # Push results
+          git push origin results
+
+      - name: Upload backtest artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-results-${{ steps.timestamp.outputs.value }}
+          path: |
+            results/${{ steps.timestamp.outputs.value }}/
+            backtest_results/
+          retention-days: ${{ github.event_name == 'schedule' && 10 || (github.event_name == 'workflow_dispatch' && 7 || 10) }}
+          if-no-files-found: ignore
