@@ -1,6 +1,6 @@
 # Backtest Performance Report
 
-*Generated on: 2025-09-10T10:23:06.167938*
+*Generated on: 2025-09-10T10:23:53.500085*
 
 ## Executive Summary
 
@@ -11,8 +11,8 @@ This report provides a comprehensive analysis of the backtesting performance, in
 
 | Metric | Value | Description |
 |--------|-------|-------------|
-| **Sharpe Ratio** | 9.135730600237308 | Risk-adjusted return relative to volatility |
-| **Sortino Ratio** | 12.71610006145079 | Risk-adjusted return relative to downside volatility |
+| **Sharpe Ratio** | 8.858621020732462 | Risk-adjusted return relative to volatility |
+| **Sortino Ratio** | 12.044697277408721 | Risk-adjusted return relative to downside volatility |
 | **Annualized Return** | 0.38707733537302214 | Compound annual growth rate |
 | **Maximum Drawdown** | -0.0024875621890547706 | Largest peak-to-trough decline |
 
@@ -41,8 +41,8 @@ This report provides a comprehensive analysis of the backtesting performance, in
 
 ### Configuration
 
-- **Rolling Window**: 60 days
-- **Risk-Free Rate**: 0.0 annual
+- **Rolling Window**: 30 days
+- **Risk-Free Rate**: 0.01 annual
 - **Trading Days per Year**: 252
 
 
@@ -73,7 +73,7 @@ The risk-free rate is converted from annual to daily using: (1 + annual_rate)^(1
 
 ### Rolling Analysis
 
-Rolling metrics use a 60-day window to assess performance consistency over time.
+Rolling metrics use a 30-day window to assess performance consistency over time.
 
 ---
 

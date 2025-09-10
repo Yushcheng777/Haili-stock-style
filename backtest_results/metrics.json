@@ -1,16 +1,16 @@
 {
   "performance": {
-    "sharpe": 9.135730600237308,
-    "sortino": 12.71610006145079,
+    "sharpe": 8.858621020732462,
+    "sortino": 12.044697277408721,
     "annualized_return": 0.38707733537302214,
     "max_drawdown": -0.0024875621890547706
   },
   "charts": {},
-  "timestamp": "2025-09-10T10:23:06.167938",
+  "timestamp": "2025-09-10T10:23:53.500085",
   "config": {
-    "rolling_window_days": 60,
-    "risk_free_rate_annual": 0.0,
-    "risk_free_rate_daily": 0.0
+    "rolling_window_days": 30,
+    "risk_free_rate_annual": 0.01,
+    "risk_free_rate_daily": 3.948621945371045e-05
   },
   "data_points": 90,
   "return_periods": 89
