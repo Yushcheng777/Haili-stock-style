@@ -1,0 +1,78 @@
+# 回测报告
+
+## 1. 核心指标汇总
+
+| 指标 | 数值 |
+|------|------|
+| 年化收益率 | {{ "%.2f%%" | format((performance.annualized_return or 0) * 100) }} |
+| 夏普比率 | {{ "%.3f" | format(performance.sharpe or 0) }} |
+| Sortino比率 | {{ "%.3f" | format(performance.sortino) if performance.sortino is not none else "N/A" }} |
+| 最大回撤 | {{ "%.2f%%" | format((performance.max_drawdown or 0) * 100) }} |
+| 波动率 | {{ "%.2f%%" | format((performance.volatility or 0) * 100) }} |
+| 胜率 | {{ "%.2f%%" | format((performance.win_rate or 0) * 100) }} |
+| 交易次数 | {{ performance.total_trades or 0 }} |
+
+## 2. 资金曲线与回撤
+
+### 2.1 资金曲线
+{% if charts.equity_curve_png -%}
+![资金曲线]({{ charts.equity_curve_png }})
+{% else -%}
+*资金曲线图表未生成*
+{% endif %}
+
+### 2.2 回撤分析
+{% if charts.drawdown_png -%}
+![回撤分析]({{ charts.drawdown_png }})
+{% else -%}
+*回撤分析图表未生成*
+{% endif %}
+
+### 2.3 滚动夏普比率
+{% if charts.rolling_sharpe_png -%}
+![滚动夏普比率]({{ charts.rolling_sharpe_png }})
+
+*图表显示基于{{ rolling_window_days | default(60) }}个交易日的滚动夏普比率变化*
+{% else -%}
+*滚动夏普比率图表未生成（可能由于数据不足）*
+{% endif %}
+
+## 3. 详细分析
+
+### 3.1 收益分析
+- **总收益率**: {{ "%.2f%%" | format((performance.total_return or 0) * 100) }}
+- **基准收益率**: {{ "%.2f%%" | format((performance.benchmark_return or 0) * 100) }}
+- **超额收益**: {{ "%.2f%%" | format(((performance.total_return or 0) - (performance.benchmark_return or 0)) * 100) }}
+
+### 3.2 风险指标
+- **年化波动率**: {{ "%.2f%%" | format((performance.volatility or 0) * 100) }}
+- **夏普比率**: {{ "%.3f" | format(performance.sharpe or 0) }}
+- **Sortino比率**: {{ "%.3f" | format(performance.sortino) if performance.sortino is not none else "N/A (无负收益)" }}
+- **最大回撤**: {{ "%.2f%%" | format((performance.max_drawdown or 0) * 100) }}
+- **回撤持续期**: {{ performance.max_drawdown_duration or "N/A" }}
+
+### 3.3 交易统计
+- **总交易次数**: {{ performance.total_trades or 0 }}
+- **盈利交易**: {{ performance.winning_trades or 0 }}
+- **亏损交易**: {{ performance.losing_trades or 0 }}
+- **胜率**: {{ "%.2f%%" | format((performance.win_rate or 0) * 100) }}
+- **平均盈利**: {{ "%.2f%%" | format((performance.avg_win or 0) * 100) }}
+- **平均亏损**: {{ "%.2f%%" | format((performance.avg_loss or 0) * 100) }}
+
+## 4. 技术说明
+
+### 4.1 指标计算说明
+- **年化收益率**: 基于复合年化收益率计算
+- **夏普比率**: (年化超额收益) / (年化波动率)，假设无风险利率为{{ risk_free_rate | default(0) }}
+- **Sortino比率**: (年化超额收益) / (下行波动率)，仅考虑负收益的波动性
+- **滚动夏普比率**: 基于{{ rolling_window_days | default(60) }}个交易日窗口的滚动计算
+
+### 4.2 数据概要
+- **回测期间**: {{ backtest_start_date or "N/A" }} 至 {{ backtest_end_date or "N/A" }}
+- **数据点数**: {{ data_points or 0 }}
+- **交易频率**: {{ trading_frequency or "日度" }}
+- **基准**: {{ benchmark or "买入持有" }}
+
+---
+
+*报告生成时间: {{ report_generated_at or "未知" }}*
