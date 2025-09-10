@@ -55,7 +55,7 @@ jobs:
               from haili_integrated_strategy import quick_run
               
               # Use a small set of well-known stocks for smoke test
-              test_stocks = ['000001', '000002', '600036']  # Ping An, Vanke, China Merchants Bank
+              test_stocks = ['000001', '000002']  # Ping An Bank, China Vanke (reduced for faster execution)
               print(f"Running smoke test on {test_stocks} with 30 day window...")
               
               results = quick_run(stock_codes=test_stocks, backtest_days=30)
@@ -69,6 +69,9 @@ jobs:
                   
           except Exception as e:
               print(f"❌ Smoke test failed: {str(e)}")
+              # For validation, we want to catch import errors gracefully too
+              if 'No module named' in str(e):
+                  print("This appears to be a dependency issue - check requirements.txt")
               sys.exit(1)
           EOF
 

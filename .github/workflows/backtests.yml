@@ -2,8 +2,8 @@ name: Backtests - Scheduled & Manual
 
 on:
   schedule:
-    # Daily at 10:30 UTC (China market close + 2.5h buffer: 15:00 + 2.5h = 17:30 CST = 10:30 UTC)
-    - cron: '30 10 * * *'
+    # Daily at 09:30 UTC (China market close + 2.5h buffer: 15:00 + 2.5h = 17:30 CST = 09:30 UTC)
+    - cron: '30 9 * * *'
   workflow_dispatch:
     inputs:
       days:
