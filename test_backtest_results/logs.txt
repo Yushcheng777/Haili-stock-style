@@ -1,0 +1,5 @@
+Test backtest run completed successfully.
+Strategy: Haili Technical Strategy
+Period: 2023-01-01 to 2023-12-31
+Total trades executed: 25
+Processing completed without errors.
