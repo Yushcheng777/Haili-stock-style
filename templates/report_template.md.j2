@@ -1,0 +1,106 @@
+# Backtest Performance Report
+
+*Generated on: {{ timestamp }}*
+
+## Executive Summary
+
+This report provides a comprehensive analysis of the backtesting performance, including key risk-adjusted metrics and visual charts.
+
+{% if performance %}
+## Performance Metrics
+
+| Metric | Value | Description |
+|--------|-------|-------------|
+| **Sharpe Ratio** | {% if performance.sharpe %}{{ performance.sharpe }}{% else %}N/A{% endif %} | Risk-adjusted return relative to volatility |
+| **Sortino Ratio** | {% if performance.sortino %}{{ performance.sortino }}{% else %}N/A{% endif %} | Risk-adjusted return relative to downside volatility |
+| **Annualized Return** | {% if performance.annualized_return %}{{ performance.annualized_return }}{% else %}N/A{% endif %} | Compound annual growth rate |
+| **Maximum Drawdown** | {% if performance.max_drawdown %}{{ performance.max_drawdown }}{% else %}N/A{% endif %} | Largest peak-to-trough decline |
+
+### Interpretation Guide
+
+- **Sharpe Ratio**: 
+  - \> 2.0: Excellent
+  - 1.0 - 2.0: Good  
+  - 0.5 - 1.0: Acceptable
+  - < 0.5: Poor
+
+- **Sortino Ratio**: 
+  - Higher values indicate better risk-adjusted returns
+  - Focuses only on downside risk (negative volatility)
+
+- **Maximum Drawdown**: 
+  - Lower absolute values are better
+  - Represents the worst-case scenario during the backtest period
+
+{% endif %}
+
+{% if charts %}
+## Visual Analysis
+
+{% if charts.rolling_sharpe %}
+### Rolling Sharpe Ratio
+
+![Rolling Sharpe Ratio]({{ charts.rolling_sharpe }})
+
+The rolling Sharpe ratio chart shows the consistency of risk-adjusted returns over time. Reference lines at 1.0 and 2.0 help identify periods of good and excellent performance.
+
+{% endif %}
+
+{% if charts.equity_curve %}
+### Equity Curve
+
+![Equity Curve]({{ charts.equity_curve }})
+
+{% endif %}
+
+{% if charts.drawdown %}
+### Drawdown Analysis
+
+![Drawdown]({{ charts.drawdown }})
+
+{% endif %}
+
+{% endif %}
+
+## Technical Details
+
+{% if config %}
+### Configuration
+
+- **Rolling Window**: {{ config.rolling_window_days }} days
+- **Risk-Free Rate**: {{ config.risk_free_rate_annual }} annual
+- **Trading Days per Year**: 252
+
+{% endif %}
+
+{% if data_points %}
+### Data Summary
+
+- **Total Data Points**: {{ data_points }}
+{% if return_periods %}
+- **Return Periods**: {{ return_periods }}
+- **Analysis Period**: Approximately {{ return_periods }} days
+{% endif %}
+{% endif %}
+
+## Methodology
+
+### Metrics Calculation
+
+1. **Daily Returns**: Calculated as percentage change between consecutive periods
+2. **Sharpe Ratio**: (Mean Excess Return / Standard Deviation) × √252
+3. **Sortino Ratio**: Annualized Return / Downside Deviation × √252
+4. **Annualized Return**: (End Value / Start Value)^(252/periods) - 1
+5. **Maximum Drawdown**: Minimum of (Current Value / Running Maximum - 1)
+
+### Risk-Free Rate
+
+The risk-free rate is converted from annual to daily using: (1 + annual_rate)^(1/252) - 1
+
+### Rolling Analysis
+
+Rolling metrics use a {{ config.rolling_window_days if config else 'configurable' }}-day window to assess performance consistency over time.
+
+---
+
+*This report was generated automatically using the Haili Stock Style backtesting framework.*
