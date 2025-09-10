@@ -4,12 +4,35 @@ generate_backtest_report.py
 
 Enhanced backtest report generator with Sortino ratio calculation and Rolling Sharpe chart generation.
 
+This script enhances backtest reporting by adding:
+1. Sortino ratio calculation - measures risk-adjusted returns considering only downside volatility
+2. Rolling Sharpe ratio chart generation - shows how risk-adjusted performance changes over time
+3. Environment variable configuration for flexibility
+4. Robust error handling for missing data and edge cases
+
 Environment Variables:
     ROLLING_WINDOW_DAYS (int): Rolling window for Sharpe calculation (default: 60)
+        - Minimum recommended: 30 days
+        - Typical values: 60, 90, 120 days
     RISK_FREE_RATE (float): Annual risk-free rate (default: 0.0)
+        - Used for excess return calculations in Sortino and Sharpe ratios
+        - Example: 0.02 for 2% annual risk-free rate
 
 Usage:
     python generate_backtest_report.py [backtest_results_directory]
+    
+    # With environment variables:
+    ROLLING_WINDOW_DAYS=90 RISK_FREE_RATE=0.02 python generate_backtest_report.py
+
+Requirements:
+    - Minimum data: equity_curve.csv with >= 30 rows
+    - Expected columns: date, nav (or variations like equity, portfolio_value)
+    - Optional: pandas, numpy, matplotlib for enhanced functionality
+
+Output:
+    - Updates metrics.json with Sortino ratio and annualized return
+    - Creates rolling_sharpe.png chart (if matplotlib available)
+    - Handles missing data gracefully with appropriate fallbacks
 """
 
 import os
