@@ -79,6 +79,8 @@ quick_run(['000001', '000002', '600036'])
 ### 3.5 ⚠️ 弃用通知 (Deprecation Notice)
 **haili_backtest.py 已被弃用** - `haili_backtest.py` 脚本已被弃用，请改用新的统一CLI：`scripts/integrated_backtest_cli.py`。虽然旧脚本暂时仍可使用（会自动重定向），但建议迁移到新的CLI以获得更好的功能和维护支持。
 
+**haili_backtest.py is deprecated** - The `haili_backtest.py` script has been deprecated. Please use the new unified CLI: `scripts/integrated_backtest_cli.py`. While the old script still works temporarily (with automatic redirect), we recommend migrating to the new CLI for better functionality and maintenance support.
+
 ## 4. CLI 用法 (CLI Usage)
 
 ### 4.1 统一回测CLI - scripts/integrated_backtest_cli.py

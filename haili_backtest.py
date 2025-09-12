@@ -34,8 +34,16 @@ import os
 import sys
 import argparse
 from datetime import datetime
-import numpy as np
-import pandas as pd
+
+# Conditional imports to make module import-safe
+try:
+    import numpy as np
+    import pandas as pd
+    DEPS_AVAILABLE = True
+except ImportError:
+    np = None
+    pd = None
+    DEPS_AVAILABLE = False
 
 try:
     import tushare as ak
@@ -271,6 +279,11 @@ def main():
     原始主函数 - 已弃用，保留用于向后兼容
     Original main function - deprecated, kept for backward compatibility
     """
+    if not DEPS_AVAILABLE:
+        print("[deprecated] Error: Required dependencies not available (numpy, pandas)")
+        print("[deprecated] Please install: pip install -r requirements.txt")
+        sys.exit(1)
+        
     parser = argparse.ArgumentParser()
     parser.add_argument('--tickers', nargs='*', help='tickers to process (space separated)')
     parser.add_argument('--input-csv', help='local CSV file for a single ticker (overrides remote fetch)')
