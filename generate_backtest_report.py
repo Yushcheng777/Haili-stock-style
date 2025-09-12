@@ -97,6 +97,47 @@ def safe_int(value, default=None):
     except (ValueError, TypeError):
         return default
 
+def normalize_equity_columns(data):
+    """Normalize column names for date and equity/value columns"""
+    if not HAS_PANDAS:
+        # For basic CSV data (list of dicts), just return as is
+        return data, 'date', 'equity'
+    
+    # Define aliases
+    date_aliases = ['date', 'Date', 'trade_date', 'TradeDate', 'datetime', 'Datetime', 
+                   'timestamp', 'Timestamp', 'time', 'Time']
+    equity_aliases = ['equity', 'Equity', 'portfolio_value', 'PortfolioValue', 
+                     'total_value', 'TotalValue', 'nav', 'NAV', 'value', 'Value']
+    
+    columns = list(data.columns)
+    date_col = None
+    equity_col = None
+    
+    # Find date column
+    for alias in date_aliases:
+        if alias in columns:
+            date_col = alias
+            break
+    
+    # Find equity column  
+    for alias in equity_aliases:
+        if alias in columns:
+            equity_col = alias
+            break
+    
+    if date_col is None or equity_col is None:
+        raise ValueError(f"Could not find required columns. Available: {columns}. "
+                        f"Need date column from {date_aliases} and equity column from {equity_aliases}")
+    
+    # Create a copy and rename columns
+    normalized_data = data.copy()
+    if date_col != 'date':
+        normalized_data = normalized_data.rename(columns={date_col: 'date'})
+    if equity_col != 'equity':
+        normalized_data = normalized_data.rename(columns={equity_col: 'equity'})
+    
+    return normalized_data, date_col, equity_col
+
 def load_backtest_data(base_dir):
     """Load all backtest data from the specified directory"""
     base_path = Path(base_dir)
@@ -286,11 +327,31 @@ def generate_charts(base_dir, data):
             equity_data = read_csv_data(equity_file)
             
             if HAS_PANDAS:
-                equity_data['date'] = pd.to_datetime(equity_data['date'])
+                # Normalize column names for robust chart generation
+                try:
+                    equity_data, orig_date_col, orig_equity_col = normalize_equity_columns(equity_data)
+                    print(f"Normalized columns: '{orig_date_col}' -> 'date', '{orig_equity_col}' -> 'equity'")
+                except ValueError as e:
+                    print(f"Warning: Could not normalize columns: {e}")
+                    print("Skipping chart generation")
+                    return chart_paths
+                
+                # Convert and clean data
+                equity_data['date'] = pd.to_datetime(equity_data['date'], errors='coerce')
+                equity_data['equity'] = pd.to_numeric(equity_data['equity'], errors='coerce')
+                
+                # Drop rows with NaN values
+                equity_data = equity_data.dropna(subset=['date', 'equity'])
+                
+                if len(equity_data) == 0:
+                    print("Warning: No valid data rows after cleaning. Skipping chart generation.")
+                    return chart_paths
+                
+                # Sort by date
                 equity_data = equity_data.sort_values('date')
                 
                 dates = equity_data['date']
-                values = pd.to_numeric(equity_data['equity'], errors='coerce')
+                values = equity_data['equity']
                 
                 # Calculate drawdown
                 peak = values.expanding().max()
@@ -340,9 +401,11 @@ def generate_charts(base_dir, data):
             plt.close()
             
             chart_paths['drawdown_png'] = 'charts/drawdown.png'
+            print("Charts generated successfully")
             
         except Exception as e:
-            print(f"Error generating charts: {e}")
+            print(f"Warning: Error generating charts: {e}")
+            print("Chart generation failed, but continuing with report generation")
     
     return chart_paths
 
