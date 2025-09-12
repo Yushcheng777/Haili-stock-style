@@ -29,6 +29,10 @@ from datetime import datetime
 from pathlib import Path
 import platform
 
+# Column name aliases for robust CSV parsing
+DATE_ALIASES = ['date','Date','trade_date','TradeDate','datetime','Datetime','timestamp','Timestamp','time','Time']
+EQUITY_ALIASES = ['equity','Equity','portfolio_value','PortfolioValue','total_value','TotalValue','nav','NAV','value','Value']
+
 # Try to import required libraries
 try:
     import jinja2
@@ -286,63 +290,164 @@ def generate_charts(base_dir, data):
             equity_data = read_csv_data(equity_file)
             
             if HAS_PANDAS:
-                equity_data['date'] = pd.to_datetime(equity_data['date'])
+                # Column normalization using aliases
+                date_col = None
+                equity_col = None
+                
+                # 1) Try to rename first matching date alias to 'date'
+                for alias in DATE_ALIASES:
+                    if alias in equity_data.columns:
+                        equity_data = equity_data.rename(columns={alias: 'date'})
+                        date_col = 'date'
+                        break
+                
+                # If no alias matched, try auto-detection of parsable datetime column
+                if date_col is None:
+                    for col in equity_data.columns:
+                        try:
+                            test_dates = pd.to_datetime(equity_data[col], errors='coerce')
+                            non_nan_ratio = test_dates.notna().sum() / len(test_dates)
+                            if non_nan_ratio >= 0.5:  # >= 50% non-NaN
+                                equity_data = equity_data.rename(columns={col: 'date'})
+                                date_col = 'date'
+                                break
+                        except:
+                            continue
+                
+                if date_col is None:
+                    print("Warning: No suitable date column found, skipping chart generation")
+                    return chart_paths
+                
+                # 2) Try to rename first matching equity/value alias to 'equity'
+                for alias in EQUITY_ALIASES:
+                    if alias in equity_data.columns:
+                        equity_data = equity_data.rename(columns={alias: 'equity'})
+                        equity_col = 'equity'
+                        break
+                
+                if equity_col is None:
+                    print("Warning: No suitable equity/value column found, skipping chart generation")
+                    return chart_paths
+                
+                # 3) Coerce types and clean data
+                equity_data['date'] = pd.to_datetime(equity_data['date'], errors='coerce')
+                equity_data['equity'] = pd.to_numeric(equity_data['equity'], errors='coerce')
+                
+                # Drop rows with NaN in either column
+                equity_data = equity_data.dropna(subset=['date', 'equity'])
+                
+                # Sort by date
                 equity_data = equity_data.sort_values('date')
                 
+                # Check if we have enough data after cleaning
+                if len(equity_data) < 2:
+                    print("Warning: Less than 2 rows remaining after data cleaning, skipping chart generation")
+                    return chart_paths
+                
                 dates = equity_data['date']
-                values = pd.to_numeric(equity_data['equity'], errors='coerce')
+                values = equity_data['equity']
                 
                 # Calculate drawdown
                 peak = values.expanding().max()
                 drawdown = (values - peak) / peak
-            else:
-                # Basic implementation without pandas
-                dates = [row.get('date', '') for row in equity_data]
-                values = [safe_float(row.get('equity', 0)) for row in equity_data]
                 
-                # Simple drawdown calculation
-                drawdown = []
-                peak = 0
-                for val in values:
-                    if val > peak:
-                        peak = val
-                    drawdown.append((val - peak) / peak if peak > 0 else 0)
-            
-            # Create equity curve chart
-            plt.figure(figsize=(12, 6))
-            plt.plot(dates, values, linewidth=2, color='blue')
-            plt.title('资金曲线 (Equity Curve)', fontsize=14, pad=20)
-            plt.xlabel('日期 (Date)')
-            plt.ylabel('资金 (Equity)')
-            plt.grid(True, alpha=0.3)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            
-            equity_chart_path = charts_dir / 'equity_curve.png'
-            plt.savefig(equity_chart_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            chart_paths['equity_curve_png'] = 'charts/equity_curve.png'
-            
-            # Create drawdown chart
-            plt.figure(figsize=(12, 6))
-            plt.fill_between(dates, drawdown, 0, alpha=0.3, color='red')
-            plt.plot(dates, drawdown, linewidth=2, color='darkred')
-            plt.title('回撤曲线 (Drawdown)', fontsize=14, pad=20)
-            plt.xlabel('日期 (Date)')
-            plt.ylabel('回撤 (Drawdown)')
-            plt.grid(True, alpha=0.3)
-            plt.xticks(rotation=45)
-            plt.tight_layout()
-            
-            drawdown_chart_path = charts_dir / 'drawdown.png'
-            plt.savefig(drawdown_chart_path, dpi=150, bbox_inches='tight')
-            plt.close()
-            
-            chart_paths['drawdown_png'] = 'charts/drawdown.png'
+                # Wrap chart generation in try/except for non-fatal errors
+                try:
+                    # Create equity curve chart
+                    plt.figure(figsize=(12, 6))
+                    plt.plot(dates, values, linewidth=2, color='blue')
+                    plt.title('资金曲线 (Equity Curve)', fontsize=14, pad=20)
+                    plt.xlabel('日期 (Date)')
+                    plt.ylabel('资金 (Equity)')
+                    plt.grid(True, alpha=0.3)
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    
+                    equity_chart_path = charts_dir / 'equity_curve.png'
+                    plt.savefig(equity_chart_path, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    
+                    chart_paths['equity_curve_png'] = 'charts/equity_curve.png'
+                    
+                    # Create drawdown chart
+                    plt.figure(figsize=(12, 6))
+                    plt.fill_between(dates, drawdown, 0, alpha=0.3, color='red')
+                    plt.plot(dates, drawdown, linewidth=2, color='darkred')
+                    plt.title('回撤曲线 (Drawdown)', fontsize=14, pad=20)
+                    plt.xlabel('日期 (Date)')
+                    plt.ylabel('回撤 (Drawdown)')
+                    plt.grid(True, alpha=0.3)
+                    plt.xticks(rotation=45)
+                    plt.tight_layout()
+                    
+                    drawdown_chart_path = charts_dir / 'drawdown.png'
+                    plt.savefig(drawdown_chart_path, dpi=150, bbox_inches='tight')
+                    plt.close()
+                    
+                    chart_paths['drawdown_png'] = 'charts/drawdown.png'
+                    
+                except Exception as e:
+                    print(f"Error generating charts: {e}")
+                    # Continue execution without failing
+                
+            else:
+                # Basic implementation without pandas - look for 'date'/'equity' keys after normalization
+                if len(equity_data) > 0:
+                    first_row = equity_data[0]
+                    # Check if normalized column names exist
+                    if 'date' in first_row and 'equity' in first_row:
+                        dates = [row.get('date', '') for row in equity_data]
+                        values = [safe_float(row.get('equity', 0)) for row in equity_data]
+                        
+                        # Simple drawdown calculation
+                        drawdown = []
+                        peak = 0
+                        for val in values:
+                            if val > peak:
+                                peak = val
+                            drawdown.append((val - peak) / peak if peak > 0 else 0)
+                        
+                        try:
+                            # Create equity curve chart
+                            plt.figure(figsize=(12, 6))
+                            plt.plot(dates, values, linewidth=2, color='blue')
+                            plt.title('资金曲线 (Equity Curve)', fontsize=14, pad=20)
+                            plt.xlabel('日期 (Date)')
+                            plt.ylabel('资金 (Equity)')
+                            plt.grid(True, alpha=0.3)
+                            plt.xticks(rotation=45)
+                            plt.tight_layout()
+                            
+                            equity_chart_path = charts_dir / 'equity_curve.png'
+                            plt.savefig(equity_chart_path, dpi=150, bbox_inches='tight')
+                            plt.close()
+                            
+                            chart_paths['equity_curve_png'] = 'charts/equity_curve.png'
+                            
+                            # Create drawdown chart
+                            plt.figure(figsize=(12, 6))
+                            plt.fill_between(dates, drawdown, 0, alpha=0.3, color='red')
+                            plt.plot(dates, drawdown, linewidth=2, color='darkred')
+                            plt.title('回撤曲线 (Drawdown)', fontsize=14, pad=20)
+                            plt.xlabel('日期 (Date)')
+                            plt.ylabel('回撤 (Drawdown)')
+                            plt.grid(True, alpha=0.3)
+                            plt.xticks(rotation=45)
+                            plt.tight_layout()
+                            
+                            drawdown_chart_path = charts_dir / 'drawdown.png'
+                            plt.savefig(drawdown_chart_path, dpi=150, bbox_inches='tight')
+                            plt.close()
+                            
+                            chart_paths['drawdown_png'] = 'charts/drawdown.png'
+                            
+                        except Exception as e:
+                            print(f"Error generating charts: {e}")
+                    else:
+                        print("Warning: Required 'date' and 'equity' columns not found in non-pandas mode")
             
         except Exception as e:
-            print(f"Error generating charts: {e}")
+            print(f"Error processing equity curve data: {e}")
     
     return chart_paths
 
