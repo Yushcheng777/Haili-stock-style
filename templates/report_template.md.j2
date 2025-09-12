@@ -1,0 +1,34 @@
+# 回测报告 / Backtest Report
+
+## 基础信息 / Basic Information
+- **开始日期 / Start Date**: {{ summary.start_date }}
+- **结束日期 / End Date**: {{ summary.end_date }}
+- **交易天数 / Trading Days**: {{ summary.trading_days }}
+
+## 核心指标 / Core Metrics
+
+| 指标 / Metric | 数值 / Value |
+|---------------|--------------|
+| 总收益率 / Total Return | {{ "%.2f%%" | format(performance.total_return * 100) if performance.total_return is not none else "N/A" }} |
+| 年化收益率 / Annualized Return | {{ "%.2f%%" | format(performance.annualized_return * 100) if performance.annualized_return is not none else "N/A" }} |
+| 年化波动率 / Annualized Volatility | {{ "%.2f%%" | format(performance.volatility_annualized * 100) if performance.volatility_annualized is not none else "N/A" }} |
+| 夏普比率 / Sharpe Ratio | {{ "%.3f" | format(performance.sharpe_ratio) if performance.sharpe_ratio is not none else "N/A" }} |
+| Sortino 比率 / Sortino Ratio | {{ "%.3f" | format(performance.sortino_ratio) if performance.sortino_ratio is not none else "N/A" }} |
+| 最大回撤 / Max Drawdown | {{ "%.2f%%" | format(performance.max_drawdown * 100) if performance.max_drawdown is not none else "N/A" }} |
+| Calmar 比率 / Calmar Ratio | {{ "%.3f" | format(performance.calmar) if performance.calmar is not none else "N/A" }} |
+| 胜率 / Win Rate | {{ "%.2f%%" | format(performance.win_rate * 100) if performance.win_rate is not none else "N/A" }} |
+
+## 图表 / Charts
+
+### 滚动夏普比率 / Rolling Sharpe Ratio
+![Rolling Sharpe]({{ chart_path }})
+
+{% if exports %}
+## 导出 / Exports
+{% for export in exports %}
+- **{{ export.type }}**: {{ export.path }}
+{% endfor %}
+{% endif %}
+
+---
+*报告生成时间 / Report Generated*: {{ generated_at }}

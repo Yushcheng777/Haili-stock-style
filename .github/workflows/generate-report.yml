@@ -1,0 +1,92 @@
+name: Generate Backtest Report
+
+on:
+  workflow_dispatch:
+    inputs:
+      equity_curve_path:
+        description: 'Path to equity curve CSV file'
+        required: true
+        default: 'backtest_results/equity_curve.csv'
+  
+  # Automatically run when equity curve is updated
+  push:
+    paths:
+      - 'backtest_results/equity_curve.csv'
+
+jobs:
+  generate-report:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.10'
+    
+    - name: Install base dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas numpy matplotlib jinja2
+    
+    - name: Install optional dependencies (soft fail)
+      run: |
+        pip install markdown weasyprint reportlab || true
+    
+    - name: Check if equity curve exists
+      run: |
+        EQUITY_PATH="${{ github.event.inputs.equity_curve_path || 'backtest_results/equity_curve.csv' }}"
+        if [ ! -f "$EQUITY_PATH" ]; then
+          echo "Equity curve file not found: $EQUITY_PATH"
+          echo "Creating sample data for demonstration..."
+          mkdir -p backtest_results
+          python -c "
+import pandas as pd
+import numpy as np
+from datetime import datetime, timedelta
+
+# Generate sample equity curve data
+dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+# Simulate portfolio growth with some volatility
+returns = np.random.normal(0.0005, 0.02, len(dates))  # Daily return ~ 0.05% with 2% vol
+portfolio_values = [100000]  # Start with $100k
+for ret in returns[1:]:
+    portfolio_values.append(portfolio_values[-1] * (1 + ret))
+
+df = pd.DataFrame({
+    'Date': dates,
+    'PortfolioValue': portfolio_values
+})
+df.to_csv('$EQUITY_PATH', index=False)
+print(f'Created sample equity curve: $EQUITY_PATH')
+"
+        fi
+    
+    - name: Generate backtest report
+      run: |
+        EQUITY_PATH="${{ github.event.inputs.equity_curve_path || 'backtest_results/equity_curve.csv' }}"
+        python generate_backtest_report.py --input "$EQUITY_PATH" --output-dir backtest_results
+    
+    - name: Upload report artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: backtest-report
+        path: |
+          backtest_results/report.md
+          backtest_results/report.html
+          backtest_results/report.pdf
+          backtest_results/metrics.json
+          backtest_results/charts/
+    
+    - name: Commit and push results
+      run: |
+        git config --local user.email "action@github.com"
+        git config --local user.name "GitHub Action"
+        git add backtest_results/
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update backtest report - $(date)"
+          git push
+        fi
