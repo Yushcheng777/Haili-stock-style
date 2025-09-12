@@ -25,7 +25,7 @@ import sys
 import json
 import csv
 import argparse
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 import platform
 
@@ -106,7 +106,7 @@ def load_backtest_data(base_dir):
     data = {
         'run_id': base_path.name,
         'base_dir': str(base_path),
-        'generated_at': datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'),
+        'generated_at': datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S'),
         'python_version': platform.python_version(),
         'script_version': '1.1.0'
     }
