@@ -4,3 +4,7 @@ __pycache__/
 *.pyc
 test-results/
 .pytest_cache/
+
+# Backtest results and test data  
+backtest_results/
+backtest_results_*/
