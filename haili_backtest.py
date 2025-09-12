@@ -1,7 +1,20 @@
 #!/usr/bin/env python3
 """
-haili_backtest.py
+haili_backtest.py - DEPRECATED / 已弃用
 
+⚠️  DEPRECATION NOTICE / 弃用通知 ⚠️
+本脚本已被弃用，请使用新的统一CLI：scripts/integrated_backtest_cli.py
+This script is deprecated. Please use the new unified CLI: scripts/integrated_backtest_cli.py
+
+新用法 / New Usage:
+  python scripts/integrated_backtest_cli.py
+  python scripts/integrated_backtest_cli.py --codes 000001 000002
+  python scripts/integrated_backtest_cli.py --help
+
+为了向后兼容，此脚本仍会工作，但会重定向到新的集成策略。
+For backward compatibility, this script will still work but redirects to the new integrated strategy.
+
+原始说明：
 生成符合 data/templates/haili_detailed_header.csv 的详细技术指标 CSV 文件。
 
 用法示例：
@@ -254,6 +267,10 @@ def save_csv(df_out, ticker):
     return fname
 
 def main():
+    """
+    原始主函数 - 已弃用，保留用于向后兼容
+    Original main function - deprecated, kept for backward compatibility
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--tickers', nargs='*', help='tickers to process (space separated)')
     parser.add_argument('--input-csv', help='local CSV file for a single ticker (overrides remote fetch)')
@@ -287,5 +304,37 @@ def main():
         except Exception as e:
             print(f"Error processing {t}: {e}")
 
+def _print_deprecation_warning():
+    """打印弃用警告 / Print deprecation warning"""
+    print("\n" + "=" * 80)
+    print("[deprecated] ⚠️  DEPRECATION WARNING / 弃用警告 ⚠️")
+    print("[deprecated] 本脚本已被弃用！请使用新的统一CLI：")
+    print("[deprecated] This script is deprecated! Please use the new unified CLI:")
+    print("[deprecated]")
+    print("[deprecated]   python scripts/integrated_backtest_cli.py")
+    print("[deprecated]   python scripts/integrated_backtest_cli.py --codes 000001 000002")
+    print("[deprecated]   python scripts/integrated_backtest_cli.py --help")
+    print("[deprecated]")
+    print("[deprecated] 为了向后兼容，此脚本将重定向到新的集成策略...")
+    print("[deprecated] For backward compatibility, redirecting to new integrated strategy...")
+    print("=" * 80 + "\n")
+
 if __name__ == "__main__":
-    main()
+    # Print prominent deprecation notice
+    _print_deprecation_warning()
+    
+    try:
+        # For backward compatibility, redirect to the new integrated CLI
+        import scripts.integrated_backtest_cli as new_cli
+        print("[deprecated] 正在调用新的集成策略CLI... / Calling new integrated strategy CLI...")
+        
+        # For simple backward compatibility, just call the CLI without args
+        # Advanced arg mapping could be added here if needed
+        sys.exit(new_cli.main())
+        
+    except Exception as e:
+        print(f"[deprecated] 重定向到新CLI失败，回退到原始功能 / Redirect to new CLI failed, falling back to original: {e}")
+        print("[deprecated] 执行原始回测逻辑... / Executing original backtest logic...")
+        
+        # Fallback to original functionality
+        main()

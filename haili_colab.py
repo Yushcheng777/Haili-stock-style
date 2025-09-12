@@ -1,4 +1,16 @@
 # 在 Google Colab 中运行的版本
+# ⚠️ DEPRECATION NOTICE / 弃用通知 ⚠️
+# 本脚本使用了已弃用的 haili_backtest 内容，建议使用新的集成策略。
+# This script uses deprecated haili_backtest content. Consider using the new integrated strategy.
+# 
+# 推荐使用 / Recommended usage:
+# from haili_integrated_strategy import run_integrated_strategy, quick_run
+#
+print("⚠️ 注意：此脚本使用已弃用的回测逻辑 / Warning: This script uses deprecated backtest logic")
+print("建议使用新的集成策略模块 / Consider using the new integrated strategy module")
+print("更多信息请参考项目README / See project README for more information")
+print()
+
 !pip install tushare
 
 import tushare as ak

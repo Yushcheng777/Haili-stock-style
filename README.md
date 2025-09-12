@@ -38,7 +38,22 @@ cd Haili-stock-style
 pip install -r requirements.txt
 ```
 
-### 3.2 一键执行完整流程
+### 3.2 推荐：使用统一CLI（新版本）
+```bash
+# 完整策略流程（推荐）
+python scripts/integrated_backtest_cli.py
+
+# 快速回测指定股票
+python scripts/integrated_backtest_cli.py --codes 000001 000002 600036
+
+# 自定义输出目录和回测天数
+python scripts/integrated_backtest_cli.py --out-dir my_results --backtest-days 120
+
+# 查看所有选项
+python scripts/integrated_backtest_cli.py --help
+```
+
+### 3.3 备选：直接调用集成策略模块
 ```bash
 python haili_integrated_strategy.py
 ```
@@ -50,7 +65,7 @@ python haili_integrated_strategy.py
 5. 生成信号、绩效与图表
 6. 输出汇总文件
 
-### 3.3 在代码中调用（示例）
+### 3.4 在代码中调用（示例）
 ```python
 from haili_integrated_strategy import run_integrated_strategy, quick_run
 
@@ -61,9 +76,42 @@ selected, perf_df = run_integrated_strategy()
 quick_run(['000001', '000002', '600036'])
 ```
 
+### 3.5 ⚠️ 弃用通知 (Deprecation Notice)
+**haili_backtest.py 已被弃用** - `haili_backtest.py` 脚本已被弃用，请改用新的统一CLI：`scripts/integrated_backtest_cli.py`。虽然旧脚本暂时仍可使用（会自动重定向），但建议迁移到新的CLI以获得更好的功能和维护支持。
+
+## 4. CLI 用法 (CLI Usage)
+
+### 4.1 统一回测CLI - scripts/integrated_backtest_cli.py
+推荐的回测入口，提供用户友好的命令行界面：
+
+```bash
+# 基本用法：运行完整策略流程
+python scripts/integrated_backtest_cli.py
+
+# 快速回测指定股票代码
+python scripts/integrated_backtest_cli.py --codes 000001 000002 600036
+
+# 自定义输出目录和回测参数
+python scripts/integrated_backtest_cli.py \
+  --out-dir custom_results \
+  --backtest-days 120 \
+  --verbose
+
+# 查看完整选项
+python scripts/integrated_backtest_cli.py --help
+```
+
+**CLI选项说明：**
+- `--codes`: 可选股票代码列表，用于快速回测指定股票
+- `--out-dir`: 输出目录，默认为 `backtest_results`
+- `--backtest-days`: 回测天数，默认252天（一年）
+- `--verbose`: 启用详细日志输出
+
+**默认输出位置：** `backtest_results/` 目录（可通过 `--out-dir` 自定义）
+
 ---
 
-## 4. 主要函数 (API 概览)
+## 5. 主要函数 (API 概览)
 | 函数 | 功能 | 返回 |
 |------|------|------|
 | `run_integrated_strategy()` | 执行选股 + 回测全流程 | (selected_stocks, performance_df) |
@@ -76,7 +124,7 @@ quick_run(['000001', '000002', '600036'])
 
 ---
 
-## 5. 输出内容 (Outputs)
+## 6. 输出内容 (Outputs)
 
 运行后默认输出目录（示例）：
 ```
@@ -92,7 +140,7 @@ backtest_results/
   logs/                      # 可选：运行日志
 ```
 
-### 5.1 汇总指标字段 (summary_metrics.csv)
+### 6.1 汇总指标字段 (summary_metrics.csv)
 | 字段 | 含义 |
 |------|------|
 | code | 股票代码 |
