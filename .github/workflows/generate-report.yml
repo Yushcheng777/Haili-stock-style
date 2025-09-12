@@ -1,5 +1,8 @@
 name: Generate Backtest Report
 
+permissions:
+  contents: read
+
 on:
   workflow_dispatch:
     inputs:
@@ -7,6 +10,10 @@ on:
         description: 'Path to equity curve CSV file'
         required: true
         default: 'backtest_results/equity_curve.csv'
+      debug_columns:
+        description: 'Print CSV schema and first 5 rows for debugging'
+        required: false
+        default: 'false'
   push:
     paths:
       - 'backtest_results/equity_curve.csv'
@@ -77,6 +84,31 @@ jobs:
           PY
           fi
 
+      - name: Debug CSV schema (if enabled)
+        if: github.event.inputs.debug_columns == 'true'
+        run: |
+          echo "🔍 Debug mode: Analyzing CSV structure"
+          echo "📁 File: $EQUITY_PATH"
+          if [ -f "$EQUITY_PATH" ]; then
+            echo "📊 CSV Columns and first 5 rows:"
+            python - << 'PY'
+          import os
+          import pandas as pd
+          equity_path = os.environ.get("EQUITY_PATH", "backtest_results/equity_curve.csv")
+          try:
+              df = pd.read_csv(equity_path)
+              print(f"Columns: {list(df.columns)}")
+              print("\nFirst 5 rows:")
+              print(df.head())
+              print(f"\nShape: {df.shape}")
+              print(f"Data types:\n{df.dtypes}")
+          except Exception as e:
+              print(f"Error reading CSV: {e}")
+          PY
+          else
+            echo "❌ CSV file not found: $EQUITY_PATH"
+          fi
+
       - name: Generate backtest report
         run: |
           python generate_backtest_report.py --input-dir backtest_results
@@ -93,14 +125,7 @@ jobs:
             backtest_results/charts/
           if-no-files-found: ignore
 
-      - name: Commit and push results (if changed)
+      - name: Report generation completed (artifacts-only mode)
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add backtest_results/
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update backtest report - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            git push
-          fi
+          echo "✅ Backtest report generation completed successfully"
+          echo "📁 Reports are available as workflow artifacts — no Git operations performed"

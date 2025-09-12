@@ -55,6 +55,10 @@ except ImportError:
     print("Warning: pandas not available, using basic CSV parsing")
     HAS_PANDAS = False
 
+# Column name aliases for robust CSV parsing
+DATE_ALIASES = ['date', 'Date', 'trade_date', 'TradeDate', 'datetime', 'Datetime', 'timestamp', 'Timestamp', 'time', 'Time']
+EQUITY_ALIASES = ['equity', 'Equity', 'portfolio_value', 'PortfolioValue', 'total_value', 'TotalValue', 'nav', 'NAV', 'value', 'Value']
+
 # Basic CSV reader when pandas is not available
 def read_csv_basic(filepath):
     """Basic CSV reader that returns list of dictionaries"""
@@ -269,7 +273,7 @@ def load_backtest_data(base_dir):
     return data
 
 def generate_charts(base_dir, data):
-    """Generate equity curve and drawdown charts"""
+    """Generate equity curve and drawdown charts with robust column name handling"""
     if not HAS_MATPLOTLIB:
         print("Matplotlib not available, skipping chart generation")
         return {'equity_curve_png': None, 'drawdown_png': None}
@@ -281,33 +285,116 @@ def generate_charts(base_dir, data):
     equity_file = base_path / 'equity_curve.csv'
     chart_paths = {'equity_curve_png': None, 'drawdown_png': None}
     
-    if equity_file.exists():
-        try:
-            equity_data = read_csv_data(equity_file)
+    if not equity_file.exists():
+        print(f"Equity curve file not found: {equity_file}")
+        return chart_paths
+    
+    try:
+        equity_data = read_csv_data(equity_file)
+        
+        if HAS_PANDAS:
+            # Robust column name normalization for pandas DataFrame
+            if not hasattr(equity_data, 'columns'):
+                print("Error: Expected pandas DataFrame but got different type")
+                return chart_paths
             
-            if HAS_PANDAS:
-                equity_data['date'] = pd.to_datetime(equity_data['date'])
-                equity_data = equity_data.sort_values('date')
-                
-                dates = equity_data['date']
-                values = pd.to_numeric(equity_data['equity'], errors='coerce')
-                
-                # Calculate drawdown
-                peak = values.expanding().max()
-                drawdown = (values - peak) / peak
+            original_columns = list(equity_data.columns)
+            print(f"Original CSV columns: {original_columns}")
+            
+            # 1. Try to find and rename date column
+            date_col_found = None
+            for alias in DATE_ALIASES:
+                if alias in equity_data.columns:
+                    date_col_found = alias
+                    break
+            
+            if date_col_found:
+                equity_data = equity_data.rename(columns={date_col_found: 'date'})
+                print(f"Found date column: '{date_col_found}' -> 'date'")
             else:
-                # Basic implementation without pandas
-                dates = [row.get('date', '') for row in equity_data]
-                values = [safe_float(row.get('equity', 0)) for row in equity_data]
+                # Auto-detect datetime column
+                print("No date alias found, attempting auto-detection...")
+                for col in equity_data.columns:
+                    try:
+                        test_dates = pd.to_datetime(equity_data[col], errors='coerce')
+                        non_nan_ratio = test_dates.notna().sum() / len(test_dates)
+                        if non_nan_ratio >= 0.5:  # At least 50% parseable as datetime
+                            equity_data = equity_data.rename(columns={col: 'date'})
+                            date_col_found = col
+                            print(f"Auto-detected date column: '{col}' -> 'date' ({non_nan_ratio:.1%} valid dates)")
+                            break
+                    except Exception:
+                        continue
                 
-                # Simple drawdown calculation
-                drawdown = []
-                peak = 0
-                for val in values:
-                    if val > peak:
-                        peak = val
-                    drawdown.append((val - peak) / peak if peak > 0 else 0)
+                if not date_col_found:
+                    print("Warning: No suitable date column found. Skipping chart generation.")
+                    return chart_paths
             
+            # 2. Try to find and rename equity/value column
+            equity_col_found = None
+            for alias in EQUITY_ALIASES:
+                if alias in equity_data.columns:
+                    equity_col_found = alias
+                    break
+            
+            if equity_col_found:
+                equity_data = equity_data.rename(columns={equity_col_found: 'equity'})
+                print(f"Found equity column: '{equity_col_found}' -> 'equity'")
+            else:
+                print("Warning: No suitable equity/value column found. Skipping chart generation.")
+                return chart_paths
+            
+            # 3. Clean and coerce data types
+            equity_data['date'] = pd.to_datetime(equity_data['date'], errors='coerce')
+            equity_data['equity'] = pd.to_numeric(equity_data['equity'], errors='coerce')
+            
+            # Drop rows with NaN in either date or equity
+            before_count = len(equity_data)
+            equity_data = equity_data.dropna(subset=['date', 'equity'])
+            after_count = len(equity_data)
+            
+            if before_count != after_count:
+                print(f"Dropped {before_count - after_count} rows with invalid date/equity values")
+            
+            if after_count < 2:
+                print(f"Warning: Only {after_count} valid rows remaining after cleaning. Need at least 2 rows for charts.")
+                return chart_paths
+            
+            # Sort by date
+            equity_data = equity_data.sort_values('date')
+            
+            dates = equity_data['date']
+            values = equity_data['equity']
+            
+            # Calculate drawdown
+            peak = values.expanding().max()
+            drawdown = (values - peak) / peak
+            
+        else:
+            # Fallback for non-pandas case
+            if not equity_data:
+                print("Error: No data loaded from CSV")
+                return chart_paths
+            
+            # For basic CSV reading, look for date/equity keys in the first row
+            sample_row = equity_data[0] if equity_data else {}
+            if 'date' not in sample_row or 'equity' not in sample_row:
+                print("Warning: Basic CSV fallback requires 'date' and 'equity' columns exactly. Skipping chart generation.")
+                return chart_paths
+            
+            dates = [row.get('date', '') for row in equity_data]
+            values = [safe_float(row.get('equity', 0)) for row in equity_data]
+            
+            # Simple drawdown calculation
+            drawdown = []
+            peak = 0
+            for val in values:
+                if val > peak:
+                    peak = val
+                drawdown.append((val - peak) / peak if peak > 0 else 0)
+        
+        # Wrap chart generation in try/except for non-fatal errors
+        try:
             # Create equity curve chart
             plt.figure(figsize=(12, 6))
             plt.plot(dates, values, linewidth=2, color='blue')
@@ -323,7 +410,12 @@ def generate_charts(base_dir, data):
             plt.close()
             
             chart_paths['equity_curve_png'] = 'charts/equity_curve.png'
+            print(f"Generated equity curve chart: {equity_chart_path}")
             
+        except Exception as e:
+            print(f"Error generating equity curve chart: {e}")
+        
+        try:
             # Create drawdown chart
             plt.figure(figsize=(12, 6))
             plt.fill_between(dates, drawdown, 0, alpha=0.3, color='red')
@@ -340,9 +432,13 @@ def generate_charts(base_dir, data):
             plt.close()
             
             chart_paths['drawdown_png'] = 'charts/drawdown.png'
+            print(f"Generated drawdown chart: {drawdown_chart_path}")
             
         except Exception as e:
-            print(f"Error generating charts: {e}")
+            print(f"Error generating drawdown chart: {e}")
+        
+    except Exception as e:
+        print(f"Error generating charts: {e}")
     
     return chart_paths
 
