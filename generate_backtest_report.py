@@ -286,8 +286,33 @@ def generate_charts(base_dir, data):
             equity_data = read_csv_data(equity_file)
             
             if HAS_PANDAS:
-                equity_data['date'] = pd.to_datetime(equity_data['date'])
-                equity_data = equity_data.sort_values('date')
+                # Normalize date column name
+                date_col = None
+                for cand in ['date', 'Date', 'DATE']:
+                    if cand in equity_data.columns:
+                        date_col = cand
+                        break
+                if date_col is None:
+                    raise ValueError("Equity curve CSV must include a 'date' (or 'Date') column")
+                if date_col != 'date':
+                    equity_data.rename(columns={date_col: 'date'}, inplace=True)
+                
+                # Normalize equity/value column name
+                equity_col = None
+                for cand in ['equity', 'PortfolioValue', 'portfolio_value', 'value', 'Value']:
+                    if cand in equity_data.columns:
+                        equity_col = cand
+                        break
+                if equity_col is None:
+                    raise ValueError("Equity curve CSV must include an equity column ('equity', 'PortfolioValue', etc.)")
+                if equity_col != 'equity':
+                    equity_data.rename(columns={equity_col: 'equity'}, inplace=True)
+                
+                # Ensure datetime and sort
+                equity_data['date'] = pd.to_datetime(equity_data['date'], errors='coerce')
+                if equity_data['date'].isna().all():
+                    raise ValueError("Unable to parse any dates from 'date' column")
+                equity_data = equity_data.dropna(subset=['date']).sort_values('date')
                 
                 dates = equity_data['date']
                 values = pd.to_numeric(equity_data['equity'], errors='coerce')
@@ -297,8 +322,30 @@ def generate_charts(base_dir, data):
                 drawdown = (values - peak) / peak
             else:
                 # Basic implementation without pandas
-                dates = [row.get('date', '') for row in equity_data]
-                values = [safe_float(row.get('equity', 0)) for row in equity_data]
+                # Normalize date column name
+                if isinstance(equity_data, list) and equity_data:
+                    headers = list(equity_data[0].keys())
+                    date_col = None
+                    for cand in ['date', 'Date', 'DATE']:
+                        if cand in headers:
+                            date_col = cand
+                            break
+                    if date_col is None:
+                        raise ValueError("Equity curve CSV must include a 'date' (or 'Date') column")
+                    
+                    # Normalize equity column name
+                    equity_col = None
+                    for cand in ['equity', 'PortfolioValue', 'portfolio_value', 'value', 'Value']:
+                        if cand in headers:
+                            equity_col = cand
+                            break
+                    if equity_col is None:
+                        raise ValueError("Equity curve CSV must include an equity column ('equity', 'PortfolioValue', etc.)")
+                    
+                    dates = [row.get(date_col, '') for row in equity_data]
+                    values = [safe_float(row.get(equity_col, 0)) for row in equity_data]
+                else:
+                    raise ValueError("Unable to read equity curve data")
                 
                 # Simple drawdown calculation
                 drawdown = []
