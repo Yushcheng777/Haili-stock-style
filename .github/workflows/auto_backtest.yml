@@ -33,6 +33,15 @@ jobs:
       - name: Generate Timestamp
         run: echo "TIMESTAMP=$(date +'%Y%m%d_%H%M%S')" >> $GITHUB_ENV
 
+      - name: Generate backtest reports
+        run: |
+          TIMESTAMP=${{ env.TIMESTAMP }}
+          mkdir -p backtest_results
+          # Move CSV files to backtest_results directory for processing
+          mv *.csv backtest_results/ || true
+          # Generate reports
+          python generate_backtest_report.py --input-dir backtest_results || echo "Report generation failed"
+
       - name: Commit Results to History Branch
         env:
           TIMESTAMP: ${{ env.TIMESTAMP }}
@@ -42,6 +51,7 @@ jobs:
           git fetch origin results || true
           git checkout -B results origin/results || git checkout -b results
           mkdir -p results/${TIMESTAMP}
+          mv backtest_results/* results/${TIMESTAMP}/ || true
           mv *.csv results/${TIMESTAMP}/ || true
           git add results/
           git commit -m "Backtest results for ${TIMESTAMP}" || echo "No changes to commit"
@@ -52,4 +62,4 @@ jobs:
         with:
           name: backtest-results-${{ env.TIMESTAMP }}
           path: |
-            results/${{ env.TIMESTAMP }}/*.csv
+            results/${{ env.TIMESTAMP }}/

@@ -40,6 +40,13 @@ jobs:
           # Replace with your backtest entry script and args
           python -u scripts/run_all_backtests.py --out results/$TIMESTAMP || true
 
+      - name: Generate backtest reports
+        run: |
+          TIMESTAMP=${{ steps.ts.outputs.timestamp }}
+          if [ -d "results/$TIMESTAMP" ]; then
+            python generate_backtest_report.py --input-dir results/$TIMESTAMP || echo "Report generation failed"
+          fi
+
       - name: Commit results to results branch
         env:
           TIMESTAMP: ${{ steps.ts.outputs.timestamp }}

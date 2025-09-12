@@ -1,0 +1,138 @@
+# 回测报告（{{ run_id }}）
+
+生成时间：{{ generated_at }} UTC  
+回测区间：{% if period %}{{ period.start }} → {{ period.end }}{% else %}（未提供）{% endif %}  
+初始资金：{{ capital.initial | default('N/A') }}  
+期末资金：{{ capital.final | default('N/A') }}  
+总收益率：{% if performance.total_return is not none %}{{ (performance.total_return * 100) | round(2) }}{% else %}N/A{% endif %} %  
+年化收益：{% if performance.annualized_return is not none %}{{ (performance.annualized_return * 100) | round(2) }}{% else %}N/A{% endif %} %  
+年化波动：{% if performance.annualized_vol is not none %}{{ (performance.annualized_vol * 100) | round(2) }}{% else %}N/A{% endif %} %  
+Sharpe：{{ performance.sharpe | default('N/A') }}  
+最大回撤：{% if performance.max_drawdown is not none %}{{ (performance.max_drawdown * 100) | round(2) }}{% else %}N/A{% endif %} %  
+
+---
+
+## 1. 核心指标概览
+
+| 指标 | 值 |
+|------|----|
+| 总收益率 | {% if performance.total_return is not none %}{{ (performance.total_return * 100) | round(2) }}{% else %}N/A{% endif %} % |
+| 年化收益 | {% if performance.annualized_return is not none %}{{ (performance.annualized_return * 100) | round(2) }}{% else %}N/A{% endif %} % |
+| 年化波动 | {% if performance.annualized_vol is not none %}{{ (performance.annualized_vol * 100) | round(2) }}{% else %}N/A{% endif %} % |
+| Sharpe | {{ performance.sharpe | default('N/A') }} |
+| 最大回撤 | {% if performance.max_drawdown is not none %}{{ (performance.max_drawdown * 100) | round(2) }}{% else %}N/A{% endif %} % |
+| 交易次数 | {{ trading.trade_count | default('N/A') }} |
+| 胜率 | {% if trading.win_rate is not none %}{{ (trading.win_rate * 100) | round(2) }}{% else %}N/A{% endif %} % |
+| 换手率 | {{ trading.turnover | default('N/A') }} |
+
+---
+
+## 2. 资金曲线与回撤
+
+{% if charts.equity_curve_png %}
+![Equity Curve]({{ charts.equity_curve_png }})
+{% else %}
+（未生成资金曲线图）
+{% endif %}
+
+{% if charts.drawdown_png %}
+![Drawdown Curve]({{ charts.drawdown_png }})
+{% endif %}
+
+---
+
+## 3. 交易统计
+
+{% if trades_summary %}
+### 3.1 交易概览
+| 指标 | 值 |
+|------|----|
+| 交易总数 | {{ trades_summary.count }} |
+| 平均持仓天数 | {% if trades_summary.avg_holding_days is not none %}{{ trades_summary.avg_holding_days | round(2) }}{% else %}N/A{% endif %} |
+| 平均单笔收益(%) | {% if trades_summary.avg_return_pct is not none %}{{ trades_summary.avg_return_pct | round(2) }}{% else %}N/A{% endif %} |
+| 最大单笔收益(%) | {% if trades_summary.max_return_pct is not none %}{{ trades_summary.max_return_pct | round(2) }}{% else %}N/A{% endif %} |
+| 最大单笔亏损(%) | {% if trades_summary.min_return_pct is not none %}{{ trades_summary.min_return_pct | round(2) }}{% else %}N/A{% endif %} |
+
+### 3.2 Top {{ top_trades_limit }} 盈利交易
+{% if top_winners %}
+| code | date | side | pnl_pct | pnl_amount | holding_days |
+|------|------|------|---------|------------|--------------|
+{% for t in top_winners %}
+| {{ t.code }} | {{ t.date }} | {{ t.side }} | {% if t.pnl_pct is not none %}{{ (t.pnl_pct*100) | round(2) }}{% else %}N/A{% endif %}% | {% if t.pnl is not none %}{{ t.pnl | round(2) }}{% else %}N/A{% endif %} | {{ t.holding_period_days | default('') }} |
+{% endfor %}
+{% else %}
+（无）
+{% endif %}
+
+### 3.3 Top {{ top_trades_limit }} 亏损交易
+{% if top_losers %}
+| code | date | side | pnl_pct | pnl_amount | holding_days |
+|------|------|------|---------|------------|--------------|
+{% for t in top_losers %}
+| {{ t.code }} | {{ t.date }} | {{ t.side }} | {% if t.pnl_pct is not none %}{{ (t.pnl_pct*100) | round(2) }}{% else %}N/A{% endif %}% | {% if t.pnl is not none %}{{ t.pnl | round(2) }}{% else %}N/A{% endif %} | {{ t.holding_period_days | default('') }} |
+{% endfor %}
+{% else %}
+（无）
+{% endif %}
+{% else %}
+（缺少 trades.csv，跳过）
+{% endif %}
+
+---
+
+## 4. 因子 / 行业暴露
+
+{% if factor_exposures %}
+| date | factor | exposure |
+|------|--------|----------|
+{% for row in factor_exposures[:50] %}
+| {{ row.date }} | {{ row.factor_name }} | {% if row.exposure_value is not none %}{{ row.exposure_value | round(4) }}{% else %}N/A{% endif %} |
+{% endfor %}
+{% else %}
+（无因子暴露数据）
+{% endif %}
+
+---
+
+## 5. 末日持仓快照（前 30 条）
+
+{% if positions %}
+| date | code | weight | mkt_value | unreal_pnl_pct |
+|------|------|--------|-----------|----------------|
+{% for p in positions[:30] %}
+| {{ p.date }} | {{ p.code }} | {% if p.weight is not none %}{{ (p.weight*100) | round(2) }}{% else %}{% endif %}{% if p.weight is not none %}%{% else %}{% endif %} | {% if p.market_value is not none %}{{ p.market_value | round(2) }}{% else %}{% endif %} | {% if p.unrealized_pnl_pct is not none %}{{ (p.unrealized_pnl_pct*100) | round(2) }}{% else %}{% endif %}{% if p.unrealized_pnl_pct is not none %}%{% else %}{% endif %} |
+{% endfor %}
+{% else %}
+（无持仓文件）
+{% endif %}
+
+---
+
+## 6. 日志片段
+
+{% if logs %}
+<details><summary>展开查看</summary>
+
+```
+{{ logs }}
+```
+</details>
+{% else %}
+（无日志）
+{% endif %}
+
+---
+
+## 7. 运行元信息
+
+| 字段 | 值 |
+|------|----|
+| run_id | {{ run_id }} |
+| 生成时间(UTC) | {{ generated_at }} |
+| 脚本版本 | {{ script_version | default('N/A') }} |
+| Python 版本 | {{ python_version }} |
+| 文件来源目录 | {{ base_dir }} |
+
+---
+
+（报告自动生成；若需 HTML 交互版，请查看同目录的 report.html）
