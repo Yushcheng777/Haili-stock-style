@@ -93,14 +93,9 @@ jobs:
             backtest_results/charts/
           if-no-files-found: ignore
 
-      - name: Commit and push results (if changed)
+      - name: Report generation completed (artifacts-only mode)
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          git add backtest_results/
-          if git diff --staged --quiet; then
-            echo "No changes to commit"
-          else
-            git commit -m "Update backtest report - $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
-            git push
-          fi
+          echo "✅ Backtest report generation completed successfully"
+          echo "📁 Reports are available as workflow artifacts - no Git operations performed"
+          echo "📊 Generated files:"
+          find backtest_results/ -name "*.md" -o -name "*.html" -o -name "*.pdf" -o -name "*.json" 2>/dev/null | head -10 || echo "   (Report files will be included in artifacts)"
