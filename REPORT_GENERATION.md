@@ -56,11 +56,14 @@ python generate_backtest_report.py --input-dir backtest_results
 
 ### Workflow Integration
 
-The report generation is automatically integrated into all backtest workflows:
+The report generation is automatically integrated into backtest workflows:
 
-1. **scheduled-backtest.yml** - Daily scheduled backtests
-2. **daily_haili_backtest.yml** - Haili strategy backtests
-3. **auto_backtest.yml** - Automated strategy backtests
+1. **generate-report.yml** - Artifacts-only report generation (no Git operations)
+2. **scheduled-backtest.yml** - Daily scheduled backtests
+3. **daily_haili_backtest.yml** - Haili strategy backtests
+4. **auto_backtest.yml** - Automated strategy backtests
+
+Note: The `generate-report.yml` workflow specifically operates in artifacts-only mode for clean report generation without repository modifications.
 
 ## Report Content
 
@@ -125,8 +128,8 @@ Reports are automatically generated after each backtest run in the CI/CD workflo
 ### Artifact Upload
 Reports are included in GitHub Actions artifacts for download and review.
 
-### Results Branch
-Reports are committed to the `results` branch along with raw backtest data for historical tracking.
+### Artifacts-Only Mode
+The `generate-report.yml` workflow operates in artifacts-only mode - it generates reports and uploads them as GitHub Actions artifacts without committing changes to the repository or creating pull requests. This provides a clean separation between report generation and repository modifications.
 
 ## Troubleshooting
 
