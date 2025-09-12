@@ -59,39 +59,39 @@ jobs:
             echo "Creating sample data for demonstration..."
             mkdir -p "$(dirname "$EQUITY_PATH")"
             python - <<'PY'
-import os
-import pandas as pd
-import numpy as np
+            import os
+            import pandas as pd
+            import numpy as np
 
-equity_path = os.environ.get("EQUITY_PATH", "backtest_results/equity_curve.csv")
-os.makedirs(os.path.dirname(equity_path), exist_ok=True)
+            equity_path = os.environ.get("EQUITY_PATH", "backtest_results/equity_curve.csv")
+            os.makedirs(os.path.dirname(equity_path), exist_ok=True)
 
-# Generate sample equity curve data
-dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
-returns = np.random.normal(0.0005, 0.02, len(dates))
-portfolio_values = [100000.0]
-for ret in returns[1:]:
-    portfolio_values.append(portfolio_values[-1] * (1.0 + ret))
+            # Generate sample equity curve data
+            dates = pd.date_range(start='2023-01-01', end='2023-12-31', freq='D')
+            returns = np.random.normal(0.0005, 0.02, len(dates))
+            portfolio_values = [100000.0]
+            for ret in returns[1:]:
+                portfolio_values.append(portfolio_values[-1] * (1.0 + ret))
 
-df = pd.DataFrame({'Date': dates, 'PortfolioValue': portfolio_values})
-df.to_csv(equity_path, index=False)
-print(f"Created sample equity curve at: {equity_path}")
-PY
+            df = pd.DataFrame({'Date': dates, 'PortfolioValue': portfolio_values})
+            df.to_csv(equity_path, index=False)
+            print(f"Created sample equity curve at: {equity_path}")
+            PY
           fi
 
       - name: Debug equity_curve columns
         if: ${{ github.event.inputs.debug_columns == 'true' }}
         run: |
           python - <<'PY'
-import pandas as pd, os
-p = os.environ.get('EQUITY_PATH', 'backtest_results/equity_curve.csv')
-try:
-    df = pd.read_csv(p)
-    print('Columns:', list(df.columns))
-    print(df.head(5).to_string(index=False))
-except Exception as e:
-    print('Failed to read equity_curve.csv for debug:', e)
-PY
+          import pandas as pd, os
+          p = os.environ.get('EQUITY_PATH', 'backtest_results/equity_curve.csv')
+          try:
+              df = pd.read_csv(p)
+              print('Columns:', list(df.columns))
+              print(df.head(5).to_string(index=False))
+          except Exception as e:
+              print('Failed to read equity_curve.csv for debug:', e)
+          PY
 
       - name: Generate backtest report
         run: |
